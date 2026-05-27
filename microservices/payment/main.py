@@ -2,7 +2,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from payment.config import settings
-from payment.api.v1.payments import router as payments_router
+
+# Import routers from each module
+from payment.models.wallet.routes import router as wallet_router
+from payment.models.transaction.routes import router as transaction_router
+from payment.models.package.routes import router as package_router
+from payment.models.subscription.routes import router as subscription_router
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -19,8 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(payments_router)
+# Include routers from each module
+app.include_router(wallet_router)
+app.include_router(transaction_router)
+app.include_router(package_router)
+app.include_router(subscription_router)
 
 
 @app.on_event("startup")
@@ -31,11 +39,11 @@ async def startup_event():
     
     # Create default token packages
     from payment.core.database import SessionLocal
-    from payment.repositories.payment_repo import PaymentRepository
+    from payment.models.package.repository import PackageRepository
     
     db = SessionLocal()
     try:
-        repo = PaymentRepository(db)
+        repo = PackageRepository(db)
         packages = repo.get_packages(active_only=False)
         
         if not packages:
