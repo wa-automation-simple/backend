@@ -1,9 +1,31 @@
 ```
-# Python
+# Dependencies
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+*.sublime-workspace
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -21,40 +43,46 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Environment
+.env
+.venv
+env/
 venv/
 ENV/
 env.bak/
-.venv/
+venv.bak/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
-
-# Environment variables
-.env
-.env.local
-.env.*
+*~
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
+*.out
+*.pid
+*.seed
+*.id
+*.core
 
-# Coverage
+# Testing
 .coverage
-coverage/
-htmlcov/
+.htmlcov/
+.tox/
+.nox/
+coverage.lcov
 
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# PyTest
-.pytest_cache/
-
-# Distribution / packaging
-.pybuild/
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Thumbs.db:encryptable
 ```
