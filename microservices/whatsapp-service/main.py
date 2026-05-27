@@ -1,260 +1,244 @@
 """
-WhatsApp Service - Multi-account WhatsApp management
-Handles: connection, messaging, warming, auto-click recovery
+WhatsApp Service - WhatsApp account management, warming, multi-account support
 """
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Optional
-import asyncio
-import random
+from typing import List
+from shared.utils.database import get_db, engine, Base
+from shared.schemas.serializers import (
+    WhatsAppAccountCreate, WhatsAppAccountResponse, WhatsAppAccountUpdate,
+    WarmupStart, WarmupStatus, MessageResponse
+)
+from shared.models.tables import User, WhatsAppAccount
+from shared.utils.auth import get_current_user
+from shared.models.rbac import RequirePermission
 
-from shared.database import get_db
-from shared.models import User, WhatsAppAccount, WarmingSchedule, AutoReply
-from shared.schemas import WhatsAppAccountCreate, WhatsAppAccountResponse, MessageSend, MessageResponse
-from shared.utils import generate_session_id, get_warming_delays, get_warming_message_limit, generate_recovery_link
-from shared.config import settings
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WhatsApp Service", version="1.0.0")
+app = FastAPI(
+    title="WhatsApp Service",
+    description="WhatsApp Account Management, Warming, Multi-Account Support",
+    version="1.0.0"
+)
 
-# In-memory session storage (use Redis in production)
-active_sessions = {}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-class WhatsAppSession:
-    """Mock WhatsApp session manager"""
-    
-    def __init__(self, phone_number: str, session_id: str):
-        self.phone_number = phone_number
-        self.session_id = session_id
-        self.status = "disconnected"
-        self.is_warming = False
-        
-    async def connect(self):
-        """Simulate WhatsApp connection"""
-        await asyncio.sleep(2)  # Simulate connection time
-        self.status = "connected"
-        
-    async def disconnect(self):
-        """Disconnect WhatsApp session"""
-        self.status = "disconnected"
-        
-    async def send_message(self, recipient: str, message: str, media_url: Optional[str] = None) -> dict:
-        """Send a message"""
-        if self.status != "connected":
-            raise HTTPException(status_code=400, detail="WhatsApp not connected")
-        
-        # Simulate sending
-        await asyncio.sleep(0.5)
-        return {
-            "success": True,
-            "message_id": f"msg_{random.randint(100000, 999999)}",
-            "status": "sent"
-        }
-    
-    async def click_link(self, url: str) -> bool:
-        """Auto-click recovery link"""
-        # Simulate clicking a link
-        await asyncio.sleep(1)
-        return True
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "whatsapp-service"}
 
 
 @app.post("/accounts", response_model=WhatsAppAccountResponse)
-async def create_account(
+async def create_whatsapp_account(
     account_data: WhatsAppAccountCreate,
-    current_user: dict,  # Would be validated via JWT in production
+    current_user: User = Depends(RequirePermission("wa_account:create")),
     db: Session = Depends(get_db)
 ):
-    """Add a new WhatsApp account"""
-    # Check if phone number already exists
+    """Add new WhatsApp account (multi-account support)"""
+    # Check if phone already exists
     existing = db.query(WhatsAppAccount).filter(
         WhatsAppAccount.phone_number == account_data.phone_number
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Phone number already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already registered"
+        )
     
-    session_id = generate_session_id()
-    db_account = WhatsAppAccount(
-        user_id=current_user.get("user_id", 1),
+    new_account = WhatsAppAccount(
+        user_id=current_user.id,
         phone_number=account_data.phone_number,
-        session_id=session_id,
         status="disconnected"
     )
-    db.add(db_account)
-    db.commit()
-    db.refresh(db_account)
     
-    return db_account
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    
+    return new_account
 
 
 @app.get("/accounts", response_model=List[WhatsAppAccountResponse])
-async def list_accounts(
-    user_id: int,
+async def list_whatsapp_accounts(
+    current_user: User = Depends(RequirePermission("wa_account:read")),
     db: Session = Depends(get_db)
 ):
-    """List all WhatsApp accounts for a user"""
-    accounts = db.query(WhatsAppAccount).filter(WhatsAppAccount.user_id == user_id).all()
+    """List all WhatsApp accounts for current user"""
+    accounts = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.user_id == current_user.id
+    ).all()
     return accounts
 
 
-@app.post("/accounts/{account_id}/connect")
-async def connect_account(account_id: int, db: Session = Depends(get_db)):
-    """Connect a WhatsApp account"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-    
-    # Create session
-    session = WhatsAppSession(account.phone_number, account.session_id)
-    await session.connect()
-    active_sessions[account.session_id] = session
-    
-    account.status = "connected"
-    account.last_active = asyncio.get_event_loop().time()
-    db.commit()
-    
-    return {"status": "connected", "session_id": account.session_id}
-
-
-@app.post("/accounts/{account_id}/disconnect")
-async def disconnect_account(account_id: int, db: Session = Depends(get_db)):
-    """Disconnect a WhatsApp account"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-    
-    if account.session_id in active_sessions:
-        await active_sessions[account.session_id].disconnect()
-        del active_sessions[account.session_id]
-    
-    account.status = "disconnected"
-    db.commit()
-    
-    return {"status": "disconnected"}
-
-
-@app.post("/messages/send", response_model=MessageResponse)
-async def send_message(
-    message_data: MessageSend,
+@app.get("/accounts/{account_id}", response_model=WhatsAppAccountResponse)
+async def get_whatsapp_account(
+    account_id: int,
+    current_user: User = Depends(RequirePermission("wa_account:read")),
     db: Session = Depends(get_db)
 ):
-    """Send a WhatsApp message"""
+    """Get specific WhatsApp account"""
     account = db.query(WhatsAppAccount).filter(
-        WhatsAppAccount.id == message_data.whatsapp_account_id
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.user_id == current_user.id
     ).first()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-    
-    if account.status != "connected":
-        raise HTTPException(status_code=400, detail="WhatsApp account not connected")
-    
-    session = active_sessions.get(account.session_id)
-    if not session:
-        raise HTTPException(status_code=400, detail="No active session")
-    
-    result = await session.send_message(
-        recipient=message_data.recipient,
-        message=message_data.message,
-        media_url=message_data.media_url
-    )
-    
-    return MessageResponse(**result)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
+    return account
 
 
-@app.post("/accounts/{account_id}/warming/start")
-async def start_warming(
+@app.put("/accounts/{account_id}", response_model=WhatsAppAccountResponse)
+async def update_whatsapp_account(
     account_id: int,
-    background_tasks: BackgroundTasks,
+    account_update: WhatsAppAccountUpdate,
+    current_user: User = Depends(RequirePermission("wa_account:update")),
+    db: Session = Depends(get_db)
+):
+    """Update WhatsApp account settings"""
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
+    
+    if account_update.auto_click_recovery is not None:
+        account.auto_click_recovery = account_update.auto_click_recovery
+    
+    if account_update.recovery_link is not None:
+        account.recovery_link = account_update.recovery_link
+    
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+@app.delete("/accounts/{account_id}", response_model=MessageResponse)
+async def delete_whatsapp_account(
+    account_id: int,
+    current_user: User = Depends(RequirePermission("wa_account:delete")),
+    db: Session = Depends(get_db)
+):
+    """Delete WhatsApp account"""
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
+    
+    db.delete(account)
+    db.commit()
+    
+    return MessageResponse(message="WhatsApp account deleted successfully")
+
+
+@app.post("/warmup/start", response_model=MessageResponse)
+async def start_warmup(
+    warmup_data: WarmupStart,
+    current_user: User = Depends(RequirePermission("wa_warmup:manage")),
     db: Session = Depends(get_db)
 ):
     """Start WhatsApp warming process"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
+    from datetime import datetime
+    
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == warmup_data.whatsapp_account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
     
     account.is_warming = True
+    account.warmup_day = 1
+    account.warmup_started_at = datetime.utcnow()
     account.status = "warming"
+    
     db.commit()
     
-    # Start warming task in background
-    background_tasks.add_task(run_warming_process, account_id, db)
-    
-    return {"status": "warming_started", "account_id": account_id}
+    return MessageResponse(message="Warmup started successfully")
 
 
-async def run_warming_process(account_id: int, db: Session):
-    """Background task for warming WhatsApp account"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
-    if not account:
-        return
-    
-    level = account.warming_level or 1
-    min_delay, max_delay = get_warming_delays(level)
-    msg_limit = get_warming_message_limit(level)
-    
-    messages_sent = 0
-    
-    while account.is_warming and messages_sent < msg_limit:
-        # Simulate sending warm-up messages
-        await asyncio.sleep(randomize_delay(min_delay, max_delay))
-        messages_sent += 1
-        
-        # Update progress
-        account.warming_level = min(10, level + (messages_sent // 50))
-        db.commit()
-    
-    account.is_warming = False
-    account.status = "connected"
-    db.commit()
-
-
-@app.post("/accounts/{account_id}/recovery/click")
-async def trigger_recovery_click(
+@app.get("/warmup/status/{account_id}", response_model=WarmupStatus)
+async def get_warmup_status(
     account_id: int,
+    current_user: User = Depends(RequirePermission("wa_warmup:manage")),
     db: Session = Depends(get_db)
 ):
-    """Trigger auto-click for recovery link"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
+    """Get warmup status for WhatsApp account"""
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
     
-    recovery_link = generate_recovery_link(account.phone_number)
-    
-    if account.session_id in active_sessions:
-        session = active_sessions[account.session_id]
-        clicked = await session.click_link(recovery_link)
-        
-        if clicked:
-            return {
-                "status": "recovery_initiated",
-                "link": recovery_link,
-                "clicked": True
-            }
-    
-    return {
-        "status": "recovery_pending",
-        "link": recovery_link,
-        "clicked": False
-    }
+    return WarmupStatus(
+        whatsapp_account_id=account.id,
+        is_warming=account.is_warming,
+        current_day=account.warmup_day,
+        total_days=30,
+        messages_sent_today=0,
+        next_message_at=None
+    )
 
 
-@app.get("/accounts/{account_id}/status")
-async def get_account_status(account_id: int, db: Session = Depends(get_db)):
-    """Get WhatsApp account status"""
-    account = db.query(WhatsAppAccount).filter(WhatsAppAccount.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+@app.post("/accounts/{account_id}/recovery-link", response_model=MessageResponse)
+async def generate_recovery_link(
+    account_id: int,
+    current_user: User = Depends(RequirePermission("recovery:manage")),
+    db: Session = Depends(get_db)
+):
+    """Generate recovery link for banned WhatsApp account"""
+    import uuid
+    from datetime import datetime, timedelta
     
-    return {
-        "id": account.id,
-        "phone_number": account.phone_number,
-        "status": account.status,
-        "is_warming": account.is_warming,
-        "warming_level": account.warming_level,
-        "last_active": account.last_active
-    }
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
+    
+    # Generate unique recovery link
+    recovery_token = str(uuid.uuid4())
+    account.recovery_link = f"https://wa.me/recovery/{recovery_token}"
+    account.auto_click_recovery = True
+    account.status = "banned"
+    
+    db.commit()
+    
+    return MessageResponse(
+        message=f"Recovery link generated: {account.recovery_link}"
+    )
 
 
 if __name__ == "__main__":
     import uvicorn
-    from shared.utils import randomize_delay
     uvicorn.run(app, host="0.0.0.0", port=8003)

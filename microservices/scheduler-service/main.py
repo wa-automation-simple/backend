@@ -1,348 +1,205 @@
 """
-Scheduler Service - Task scheduling and queue management
-Handles: warming schedules, campaign scheduling, recurring tasks
+Scheduler Service - Background task scheduling for warmup, blast, followups
 """
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional
 from datetime import datetime, timedelta
-import asyncio
-import json
+from shared.utils.database import get_db, engine, Base
+from shared.models.tables import (
+    WhatsAppAccount, BlastCampaign, FollowUp, WarmupSchedule
+)
+from shared.models.rbac import RequirePermission, Role
+from shared.schemas.serializers import MessageResponse
 
-from shared.database import get_db
-from shared.models import WarmingSchedule, WhatsAppAccount, BlastCampaign
-from shared.schemas import WarmingScheduleCreate, WarmingScheduleResponse
-from shared.utils import get_warming_delays, get_warming_message_limit
-from shared.config import settings
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Scheduler Service", version="1.0.0")
+app = FastAPI(
+    title="Scheduler Service",
+    description="Background Task Scheduling for Warmup, Blast, and Follow-ups",
+    version="1.0.0"
+)
 
-# In-memory task queue (use Redis/Celery in production)
-task_queue: Dict[str, dict] = {}
-
-
-class TaskScheduler:
-    """Task scheduler for background jobs"""
-    
-    def __init__(self):
-        self.scheduled_tasks = {}
-    
-    async def schedule_task(
-        self,
-        task_id: str,
-        task_type: str,
-        execute_at: datetime,
-        payload: dict
-    ):
-        """Schedule a task for later execution"""
-        self.scheduled_tasks[task_id] = {
-            "task_type": task_type,
-            "execute_at": execute_at,
-            "payload": payload,
-            "status": "scheduled"
-        }
-        
-        # Calculate delay
-        delay = (execute_at - datetime.now()).total_seconds()
-        
-        if delay > 0:
-            # Schedule async execution
-            asyncio.create_task(self._execute_delayed(task_id, delay))
-        else:
-            # Execute immediately
-            asyncio.create_task(self._execute_task(task_id))
-        
-        return task_id
-    
-    async def _execute_delayed(self, task_id: str, delay: float):
-        """Execute task after delay"""
-        await asyncio.sleep(delay)
-        await self._execute_task(task_id)
-    
-    async def _execute_task(self, task_id: str):
-        """Execute a scheduled task"""
-        if task_id not in self.scheduled_tasks:
-            return
-        
-        task = self.scheduled_tasks[task_id]
-        task["status"] = "running"
-        
-        try:
-            if task["task_type"] == "warming":
-                await self._execute_warming(task["payload"])
-            elif task["task_type"] == "campaign":
-                await self._execute_campaign(task["payload"])
-            
-            task["status"] = "completed"
-        except Exception as e:
-            task["status"] = "failed"
-            task["error"] = str(e)
-    
-    async def _execute_warming(self, payload: dict):
-        """Execute warming task"""
-        # This would integrate with WhatsApp service
-        pass
-    
-    async def _execute_campaign(self, payload: dict):
-        """Execute campaign sending task"""
-        # This would integrate with Blast service
-        pass
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-scheduler = TaskScheduler()
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "scheduler-service"}
 
 
-@app.post("/warming-schedules", response_model=WarmingScheduleResponse)
-async def create_warming_schedule(
-    schedule_data: WarmingScheduleCreate,
-    db: Session = Depends(get_db)
-):
-    """Create a warming schedule for a WhatsApp account"""
-    db_schedule = WarmingSchedule(
-        whatsapp_account_id=schedule_data.whatsapp_account_id,
-        day=schedule_data.day,
-        messages_per_day=schedule_data.messages_per_day,
-        min_delay_seconds=schedule_data.min_delay_seconds,
-        max_delay_seconds=schedule_data.max_delay_seconds,
-        is_active=schedule_data.is_active
-    )
-    
-    db.add(db_schedule)
-    db.commit()
-    db.refresh(db_schedule)
-    
-    return db_schedule
+# ============== WARMUP SCHEDULER ==============
 
-
-@app.get("/warming-schedules/{account_id}")
-async def get_warming_schedules(
+@app.post("/warmup/execute/{account_id}")
+async def execute_warmup_task(
     account_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get all warming schedules for an account"""
-    schedules = db.query(WarmingSchedule).filter(
-        WarmingSchedule.whatsapp_account_id == account_id
-    ).order_by(WarmingSchedule.day.asc()).all()
+    """Execute daily warmup task for WhatsApp account"""
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.is_warming == True
+    ).first()
     
-    return schedules
-
-
-@app.post("/warming-schedules/auto-generate/{account_id}")
-async def auto_generate_warming_schedule(
-    account_id: int,
-    days: int = 30,
-    db: Session = Depends(get_db)
-):
-    """Auto-generate a 30-day warming schedule"""
-    # Delete existing schedules
-    db.query(WarmingSchedule).filter(
-        WarmingSchedule.whatsapp_account_id == account_id
-    ).delete()
-    
-    schedules = []
-    
-    # Generate progressive warming schedule
-    for day in range(1, days + 1):
-        if day <= 7:
-            # Week 1: Very conservative
-            messages = 10 + (day * 5)
-            min_delay = 300
-            max_delay = 600
-        elif day <= 14:
-            # Week 2: Gradual increase
-            messages = 50 + ((day - 7) * 10)
-            min_delay = 180
-            max_delay = 360
-        elif day <= 21:
-            # Week 3: Moderate
-            messages = 120 + ((day - 14) * 15)
-            min_delay = 120
-            max_delay = 240
-        else:
-            # Week 4+: Normal usage
-            messages = 200 + ((day - 21) * 10)
-            min_delay = 60
-            max_delay = 180
-        
-        schedule = WarmingSchedule(
-            whatsapp_account_id=account_id,
-            day=day,
-            messages_per_day=min(messages, 200),
-            min_delay_seconds=min_delay,
-            max_delay_seconds=max_delay,
-            is_active=True
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Warming account not found"
         )
-        
-        db.add(schedule)
-        schedules.append(schedule)
+    
+    # Get warmup schedule for current day
+    schedule = db.query(WarmupSchedule).filter(
+        WarmupSchedule.day == account.warmup_day
+    ).first()
+    
+    if not schedule:
+        # Default schedule
+        messages_to_send = min(5 + account.warmup_day, 50)
+    else:
+        messages_to_send = (schedule.messages_min + schedule.messages_max) // 2
+    
+    # In production, this would send actual warmup messages
+    # Increment day after completing daily tasks
+    account.warmup_day += 1
+    
+    if account.warmup_day > 30:
+        account.is_warming = False
+        account.status = "connected"
     
     db.commit()
     
     return {
         "account_id": account_id,
-        "days": days,
-        "schedules_created": len(schedules)
+        "day": account.warmup_day,
+        "messages_sent": messages_to_send,
+        "status": account.status
     }
 
 
-@app.post("/tasks/schedule")
-async def schedule_task(
-    task_type: str,
-    execute_at: datetime,
-    payload: dict,
+# ============== BLAST SCHEDULER ==============
+
+@app.post("/blast/execute-pending")
+async def execute_pending_blasts(
     db: Session = Depends(get_db)
 ):
-    """Schedule a custom task"""
-    task_id = f"{task_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    """Execute all pending scheduled blast campaigns"""
+    now = datetime.utcnow()
     
-    scheduled_id = await scheduler.schedule_task(
-        task_id=task_id,
-        task_type=task_type,
-        execute_at=execute_at,
-        payload=payload
-    )
-    
-    task_queue[task_id] = {
-        "task_type": task_type,
-        "execute_at": execute_at,
-        "payload": payload,
-        "status": "scheduled"
-    }
-    
-    return {
-        "task_id": scheduled_id,
-        "status": "scheduled",
-        "execute_at": execute_at
-    }
-
-
-@app.get("/tasks")
-async def list_tasks(status: Optional[str] = None):
-    """List all scheduled tasks"""
-    tasks = task_queue
-    
-    if status:
-        tasks = {k: v for k, v in task_queue.items() if v.get("status") == status}
-    
-    return {
-        "count": len(tasks),
-        "tasks": tasks
-    }
-
-
-@app.get("/tasks/{task_id}")
-async def get_task(task_id: str):
-    """Get task details"""
-    if task_id not in task_queue:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    return task_queue[task_id]
-
-
-@app.delete("/tasks/{task_id}")
-async def cancel_task(task_id: str):
-    """Cancel a scheduled task"""
-    if task_id not in task_queue:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    if task_queue[task_id]["status"] == "running":
-        raise HTTPException(status_code=400, detail="Cannot cancel running task")
-    
-    del task_queue[task_id]
-    
-    if task_id in scheduler.scheduled_tasks:
-        del scheduler.scheduled_tasks[task_id]
-    
-    return {"status": "cancelled", "task_id": task_id}
-
-
-@app.post("/campaigns/{campaign_id}/schedule")
-async def schedule_campaign(
-    campaign_id: int,
-    scheduled_at: datetime,
-    db: Session = Depends(get_db)
-):
-    """Schedule a campaign for later execution"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Update campaign
-    campaign.scheduled_at = scheduled_at
-    campaign.status = "scheduled"
-    db.commit()
-    
-    # Schedule task
-    task_id = f"campaign_{campaign_id}"
-    await scheduler.schedule_task(
-        task_id=task_id,
-        task_type="campaign",
-        execute_at=scheduled_at,
-        payload={"campaign_id": campaign_id}
-    )
-    
-    task_queue[task_id] = {
-        "task_type": "campaign",
-        "execute_at": scheduled_at,
-        "payload": {"campaign_id": campaign_id},
-        "status": "scheduled"
-    }
-    
-    return {
-        "campaign_id": campaign_id,
-        "scheduled_at": scheduled_at,
-        "task_id": task_id
-    }
-
-
-@app.get("/queue/stats")
-async def get_queue_stats():
-    """Get task queue statistics"""
-    stats = {
-        "total": len(task_queue),
-        "scheduled": sum(1 for t in task_queue.values() if t.get("status") == "scheduled"),
-        "running": sum(1 for t in task_queue.values() if t.get("status") == "running"),
-        "completed": sum(1 for t in task_queue.values() if t.get("status") == "completed"),
-        "failed": sum(1 for t in task_queue.values() if t.get("status") == "failed")
-    }
-    
-    return stats
-
-
-@app.post("/cron/warming-check")
-async def check_warming_schedules(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Check and activate warming schedules (run periodically)"""
-    # Get accounts that need warming today
-    today = datetime.now().weekday() + 1  # 1-7 for Mon-Sun
-    
-    accounts_to_warm = db.query(WhatsAppAccount).filter(
-        WhatsAppAccount.is_warming == True
+    campaigns = db.query(BlastCampaign).filter(
+        BlastCampaign.status == "scheduled",
+        BlastCampaign.scheduled_at <= now
     ).all()
     
-    activated = []
-    for account in accounts_to_warm:
-        schedule = db.query(WarmingSchedule).filter(
-            WarmingSchedule.whatsapp_account_id == account.id,
-            WarmingSchedule.day == today,
-            WarmingSchedule.is_active == True
-        ).first()
-        
-        if schedule:
-            activated.append(account.id)
-            # Start warming process
-            background_tasks.add_task(start_warming_process, account.id, schedule, db)
+    executed_count = 0
+    for campaign in campaigns:
+        campaign.status = "sending"
+        executed_count += 1
+    
+    db.commit()
     
     return {
-        "status": "checked",
-        "accounts_activated": activated,
-        "count": len(activated)
+        "executed_count": executed_count,
+        "campaigns": [c.id for c in campaigns]
     }
 
 
-async def start_warming_process(account_id: int, schedule: WarmingSchedule, db: Session):
-    """Background task to start warming process"""
-    # This would integrate with WhatsApp service
-    pass
+# ============== FOLLOW-UP SCHEDULER ==============
+
+@app.post("/followup/execute-pending")
+async def execute_pending_followups(
+    db: Session = Depends(get_db)
+):
+    """Execute all pending scheduled follow-ups"""
+    now = datetime.utcnow()
+    
+    followups = db.query(FollowUp).filter(
+        FollowUp.status == "pending",
+        FollowUp.scheduled_at <= now
+    ).all()
+    
+    executed_count = 0
+    for followup in followups:
+        followup.status = "sent"
+        followup.completed_at = now
+        executed_count += 1
+    
+    db.commit()
+    
+    return {
+        "executed_count": executed_count,
+        "followups": [f.id for f in followups]
+    }
+
+
+# ============== AUTO-CLICK RECOVERY ==============
+
+@app.post("/recovery/auto-click/{account_id}")
+async def trigger_auto_click_recovery(
+    account_id: int,
+    db: Session = Depends(get_db)
+):
+    """Trigger auto-click on recovery link for banned account"""
+    account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == account_id,
+        WhatsAppAccount.auto_click_recovery == True,
+        WhatsAppAccount.recovery_link != None
+    ).first()
+    
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account with recovery link not found"
+        )
+    
+    # In production, this would use Selenium/Puppeteer to auto-click the link
+    # For demo, just update status
+    account.status = "recovering"
+    db.commit()
+    
+    return {
+        "account_id": account_id,
+        "recovery_link": account.recovery_link,
+        "status": "clicked",
+        "message": "Auto-click triggered on recovery link"
+    }
+
+
+# ============== INIT DEFAULT WARMUP SCHEDULES ==============
+
+@app.post("/warmup/init-schedules", response_model=MessageResponse)
+async def initialize_warmup_schedules(
+    db: Session = Depends(get_db)
+):
+    """Initialize default warmup schedules (30 days)"""
+    # Check if already initialized
+    existing = db.query(WarmupSchedule).first()
+    if existing:
+        return MessageResponse(message="Warmup schedules already initialized")
+    
+    # Create 30-day warmup schedule
+    schedules = []
+    for day in range(1, 31):
+        schedule = WarmupSchedule(
+            day=day,
+            messages_min=max(5, day * 2),
+            messages_max=max(10, day * 3),
+            delay_min_seconds=60,
+            delay_max_seconds=300
+        )
+        schedules.append(schedule)
+    
+    db.add_all(schedules)
+    db.commit()
+    
+    return MessageResponse(message="Warmup schedules initialized successfully")
 
 
 if __name__ == "__main__":

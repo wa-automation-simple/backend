@@ -1,250 +1,215 @@
 """
 Follow-up Service - Member follow-up tracking and scheduling
 """
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
-import asyncio
+from shared.utils.database import get_db, engine, Base
+from shared.schemas.serializers import (
+    FollowUpCreate, FollowUpResponse, FollowUpUpdate, MessageResponse
+)
+from shared.models.tables import User, FollowUp, WhatsAppAccount
+from shared.models.rbac import RequirePermission
 
-from shared.database import get_db
-from shared.models import FollowUp, WhatsAppAccount, User
-from shared.schemas import FollowUpCreate, FollowUpResponse
-from shared.config import settings
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Follow-up Service", version="1.0.0")
+app = FastAPI(
+    title="Follow-up Service",
+    description="Member Follow-up Tracking and Scheduling",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "followup-service"}
 
 
 @app.post("/followups", response_model=FollowUpResponse)
 async def create_followup(
     followup_data: FollowUpCreate,
+    current_user: User = Depends(RequirePermission("followup:create")),
     db: Session = Depends(get_db)
 ):
-    """Create a new follow-up task"""
-    db_followup = FollowUp(
-        user_id=1,  # Would come from JWT
+    """Create new follow-up for member"""
+    # Verify WhatsApp account belongs to user
+    wa_account = db.query(WhatsAppAccount).filter(
+        WhatsAppAccount.id == followup_data.whatsapp_account_id,
+        WhatsAppAccount.user_id == current_user.id
+    ).first()
+    if not wa_account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp account not found"
+        )
+    
+    followup = FollowUp(
+        user_id=current_user.id,
         whatsapp_account_id=followup_data.whatsapp_account_id,
         contact_phone=followup_data.contact_phone,
         contact_name=followup_data.contact_name,
+        message=followup_data.message,
+        scheduled_at=followup_data.scheduled_at,
         notes=followup_data.notes,
-        next_follow_up=followup_data.next_follow_up or datetime.now() + timedelta(days=1),
         status="pending"
     )
     
-    db.add(db_followup)
+    db.add(followup)
     db.commit()
-    db.refresh(db_followup)
-    
-    return db_followup
+    db.refresh(followup)
+    return followup
 
 
 @app.get("/followups", response_model=List[FollowUpResponse])
 async def list_followups(
-    user_id: int,
-    status: Optional[str] = None,
-    whatsapp_account_id: Optional[int] = None,
+    status_filter: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(RequirePermission("followup:read")),
     db: Session = Depends(get_db)
 ):
-    """List all follow-ups for a user"""
-    query = db.query(FollowUp).filter(FollowUp.user_id == user_id)
+    """List all follow-ups for current user"""
+    query = db.query(FollowUp).filter(FollowUp.user_id == current_user.id)
     
-    if status:
-        query = query.filter(FollowUp.status == status)
+    if status_filter:
+        query = query.filter(FollowUp.status == status_filter)
     
-    if whatsapp_account_id:
-        query = query.filter(FollowUp.whatsapp_account_id == whatsapp_account_id)
-    
-    # Filter upcoming follow-ups
-    query = query.order_by(FollowUp.next_follow_up.asc())
-    
-    followups = query.all()
+    followups = query.offset(skip).limit(limit).all()
     return followups
 
 
 @app.get("/followups/{followup_id}", response_model=FollowUpResponse)
-async def get_followup(followup_id: int, db: Session = Depends(get_db)):
-    """Get follow-up details"""
-    followup = db.query(FollowUp).filter(FollowUp.id == followup_id).first()
+async def get_followup(
+    followup_id: int,
+    current_user: User = Depends(RequirePermission("followup:read")),
+    db: Session = Depends(get_db)
+):
+    """Get specific follow-up"""
+    followup = db.query(FollowUp).filter(
+        FollowUp.id == followup_id,
+        FollowUp.user_id == current_user.id
+    ).first()
     if not followup:
-        raise HTTPException(status_code=404, detail="Follow-up not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Follow-up not found"
+        )
     return followup
 
 
-@app.put("/followups/{followup_id}/complete")
-async def complete_followup(
+@app.put("/followups/{followup_id}", response_model=FollowUpResponse)
+async def update_followup(
     followup_id: int,
-    notes: Optional[str] = None,
+    followup_update: FollowUpUpdate,
+    current_user: User = Depends(RequirePermission("followup:update")),
     db: Session = Depends(get_db)
 ):
-    """Mark a follow-up as completed"""
-    followup = db.query(FollowUp).filter(FollowUp.id == followup_id).first()
+    """Update follow-up"""
+    followup = db.query(FollowUp).filter(
+        FollowUp.id == followup_id,
+        FollowUp.user_id == current_user.id
+    ).first()
     if not followup:
-        raise HTTPException(status_code=404, detail="Follow-up not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Follow-up not found"
+        )
     
-    followup.status = "completed"
-    followup.last_interaction = datetime.now()
-    followup.follow_up_count += 1
-    
-    if notes:
-        followup.notes = f"{followup.notes or ''}\n[Completed]: {notes}"
+    if followup_update.contact_name:
+        followup.contact_name = followup_update.contact_name
+    if followup_update.message:
+        followup.message = followup_update.message
+    if followup_update.scheduled_at:
+        followup.scheduled_at = followup_update.scheduled_at
+    if followup_update.notes:
+        followup.notes = followup_update.notes
+    if followup_update.status:
+        followup.status = followup_update.status
+        if followup_update.status == "completed":
+            followup.completed_at = datetime.utcnow()
     
     db.commit()
-    
-    return {
-        "status": "completed",
-        "followup_id": followup_id,
-        "total_interactions": followup.follow_up_count
-    }
+    db.refresh(followup)
+    return followup
 
 
-@app.put("/followups/{followup_id}/reschedule")
-async def reschedule_followup(
+@app.delete("/followups/{followup_id}", response_model=MessageResponse)
+async def delete_followup(
     followup_id: int,
-    days: int = 1,
-    notes: Optional[str] = None,
+    current_user: User = Depends(RequirePermission("followup:delete")),
     db: Session = Depends(get_db)
 ):
-    """Reschedule a follow-up"""
-    followup = db.query(FollowUp).filter(FollowUp.id == followup_id).first()
+    """Delete follow-up"""
+    followup = db.query(FollowUp).filter(
+        FollowUp.id == followup_id,
+        FollowUp.user_id == current_user.id
+    ).first()
     if not followup:
-        raise HTTPException(status_code=404, detail="Follow-up not found")
-    
-    followup.next_follow_up = datetime.now() + timedelta(days=days)
-    followup.status = "pending"
-    
-    if notes:
-        followup.notes = f"{followup.notes or ''}\n[Rescheduled]: {notes}"
-    
-    db.commit()
-    
-    return {
-        "status": "rescheduled",
-        "followup_id": followup_id,
-        "next_follow_up": followup.next_follow_up
-    }
-
-
-@app.delete("/followups/{followup_id}")
-async def delete_followup(followup_id: int, db: Session = Depends(get_db)):
-    """Delete a follow-up"""
-    followup = db.query(FollowUp).filter(FollowUp.id == followup_id).first()
-    if not followup:
-        raise HTTPException(status_code=404, detail="Follow-up not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Follow-up not found"
+        )
     
     db.delete(followup)
     db.commit()
-    
-    return {"status": "deleted", "followup_id": followup_id}
+    return MessageResponse(message="Follow-up deleted successfully")
 
 
-@app.post("/followups/batch/reminder")
-async def send_batch_reminders(
-    user_id: int,
-    whatsapp_account_id: int,
-    background_tasks: BackgroundTasks,
+@app.post("/followups/{followup_id}/execute", response_model=MessageResponse)
+async def execute_followup(
+    followup_id: int,
+    current_user: User = Depends(RequirePermission("followup:execute")),
     db: Session = Depends(get_db)
 ):
-    """Send reminders for pending follow-ups"""
-    # Get pending follow-ups that are due
-    pending_followups = db.query(FollowUp).filter(
-        FollowUp.user_id == user_id,
+    """Execute/send follow-up message"""
+    followup = db.query(FollowUp).filter(
+        FollowUp.id == followup_id,
+        FollowUp.user_id == current_user.id
+    ).first()
+    if not followup:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Follow-up not found"
+        )
+    
+    if followup.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only pending follow-ups can be executed"
+        )
+    
+    # In production, this would send the actual WhatsApp message
+    followup.status = "sent"
+    followup.completed_at = datetime.utcnow()
+    db.commit()
+    
+    return MessageResponse(message=f"Follow-up sent to {followup.contact_phone}")
+
+
+@app.get("/followups/pending/overdue", response_model=List[FollowUpResponse])
+async def get_overdue_followups(
+    current_user: User = Depends(RequirePermission("followup:read")),
+    db: Session = Depends(get_db)
+):
+    """Get overdue follow-ups"""
+    now = datetime.utcnow()
+    followups = db.query(FollowUp).filter(
+        FollowUp.user_id == current_user.id,
         FollowUp.status == "pending",
-        FollowUp.next_follow_up <= datetime.now()
+        FollowUp.scheduled_at < now
     ).all()
-    
-    if not pending_followups:
-        return {"status": "no_pending_followups", "count": 0}
-    
-    # Process in background
-    background_tasks.add_task(
-        process_followup_reminders,
-        pending_followups,
-        whatsapp_account_id,
-        db
-    )
-    
-    return {
-        "status": "processing",
-        "count": len(pending_followups)
-    }
-
-
-async def process_followup_reminders(
-    followups: List[FollowUp],
-    whatsapp_account_id: int,
-    db: Session
-):
-    """Background task to process follow-up reminders"""
-    # In production, this would integrate with WhatsApp service
-    for followup in followups:
-        # Simulate sending reminder
-        await asyncio.sleep(0.5)
-        
-        # Update follow-up
-        followup.last_interaction = datetime.now()
-        followup.follow_up_count += 1
-        db.commit()
-
-
-@app.get("/followups/stats/{user_id}")
-async def get_followup_stats(user_id: int, db: Session = Depends(get_db)):
-    """Get follow-up statistics"""
-    total = db.query(FollowUp).filter(FollowUp.user_id == user_id).count()
-    pending = db.query(FollowUp).filter(
-        FollowUp.user_id == user_id,
-        FollowUp.status == "pending"
-    ).count()
-    completed = db.query(FollowUp).filter(
-        FollowUp.user_id == user_id,
-        FollowUp.status == "completed"
-    ).count()
-    
-    # Get overdue
-    overdue = db.query(FollowUp).filter(
-        FollowUp.user_id == user_id,
-        FollowUp.status == "pending",
-        FollowUp.next_follow_up < datetime.now()
-    ).count()
-    
-    return {
-        "user_id": user_id,
-        "total_followups": total,
-        "pending": pending,
-        "completed": completed,
-        "overdue": overdue,
-        "completion_rate": f"{(completed / total * 100) if total > 0 else 0:.2f}%"
-    }
-
-
-@app.get("/followups/upcoming/{user_id}")
-async def get_upcoming_followups(
-    user_id: int,
-    days: int = 7,
-    db: Session = Depends(get_db)
-):
-    """Get upcoming follow-ups within specified days"""
-    upcoming = db.query(FollowUp).filter(
-        FollowUp.user_id == user_id,
-        FollowUp.status == "pending",
-        FollowUp.next_follow_up <= datetime.now() + timedelta(days=days),
-        FollowUp.next_follow_up >= datetime.now()
-    ).order_by(FollowUp.next_follow_up.asc()).all()
-    
-    return {
-        "count": len(upcoming),
-        "days": days,
-        "followups": [
-            {
-                "id": f.id,
-                "contact_name": f.contact_name,
-                "contact_phone": f.contact_phone,
-                "next_follow_up": f.next_follow_up,
-                "notes": f.notes
-            }
-            for f in upcoming
-        ]
-    }
+    return followups
 
 
 if __name__ == "__main__":

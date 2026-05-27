@@ -1,268 +1,249 @@
 """
-Blast Service - Bulk messaging with image support
+Blast Service - Bulk messaging with media support
 """
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
-import asyncio
-import random
+from shared.utils.database import get_db, engine, Base
+from shared.schemas.serializers import (
+    BlastCampaignCreate, BlastCampaignResponse, BlastCampaignUpdate,
+    MediaUploadResponse, MessageResponse
+)
+from shared.models.tables import User, BlastCampaign, TokenBalance
+from shared.models.rbac import RequirePermission
 
-from shared.database import get_db
-from shared.models import BlastCampaign, WhatsAppAccount, User
-from shared.schemas import BlastCampaignCreate, BlastCampaignResponse
-from shared.config import settings
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Blast Service", version="1.0.0")
+app = FastAPI(
+    title="Blast Service",
+    description="WhatsApp Blast Campaign Management with Media Support",
+    version="1.0.0"
+)
 
-
-class BlastManager:
-    """Manage bulk message campaigns"""
-    
-    def __init__(self):
-        self.active_campaigns = {}
-    
-    async def send_batch(
-        self,
-        campaign_id: int,
-        recipients: List[str],
-        message: str,
-        media_url: Optional[str] = None,
-        whatsapp_session=None
-    ):
-        """Send messages to a batch of recipients"""
-        results = []
-        
-        for recipient in recipients:
-            # Simulate sending with random delay
-            await asyncio.sleep(random.uniform(0.5, 2.0))
-            
-            result = {
-                "recipient": recipient,
-                "success": random.choice([True, True, True, False]),  # 75% success rate simulation
-                "message_id": f"msg_{random.randint(100000, 999999)}"
-            }
-            results.append(result)
-        
-        return results
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-blast_manager = BlastManager()
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "blast-service"}
 
 
 @app.post("/campaigns", response_model=BlastCampaignResponse)
-async def create_campaign(
+async def create_blast_campaign(
     campaign_data: BlastCampaignCreate,
+    current_user: User = Depends(RequirePermission("blast:create")),
     db: Session = Depends(get_db)
 ):
-    """Create a new blast campaign"""
-    # Verify WhatsApp account exists
-    wa_account = db.query(WhatsAppAccount).filter(
-        WhatsAppAccount.id == campaign_data.whatsapp_account_id
+    """Create new blast campaign"""
+    # Check token balance
+    token_balance = db.query(TokenBalance).filter(
+        TokenBalance.user_id == current_user.id
     ).first()
-    if not wa_account:
-        raise HTTPException(status_code=404, detail="WhatsApp account not found")
     
-    db_campaign = BlastCampaign(
-        user_id=1,  # Would come from JWT token
-        whatsapp_account_id=campaign_data.whatsapp_account_id,
+    if not token_balance or token_balance.balance < len(campaign_data.recipient_list):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Insufficient token balance. Please top up."
+        )
+    
+    campaign = BlastCampaign(
+        user_id=current_user.id,
         name=campaign_data.name,
-        message_text=campaign_data.message_text,
+        message=campaign_data.message,
         media_url=campaign_data.media_url,
         media_type=campaign_data.media_type,
-        recipients=campaign_data.recipients,
+        recipient_list=campaign_data.recipient_list,
         scheduled_at=campaign_data.scheduled_at,
         status="scheduled" if campaign_data.scheduled_at else "draft"
     )
     
-    db.add(db_campaign)
+    db.add(campaign)
     db.commit()
-    db.refresh(db_campaign)
-    
-    return db_campaign
-
-
-@app.get("/campaigns", response_model=List[BlastCampaignResponse])
-async def list_campaigns(
-    user_id: int,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """List all campaigns for a user"""
-    query = db.query(BlastCampaign).filter(BlastCampaign.user_id == user_id)
-    
-    if status:
-        query = query.filter(BlastCampaign.status == status)
-    
-    campaigns = query.all()
-    return campaigns
-
-
-@app.get("/campaigns/{campaign_id}", response_model=BlastCampaignResponse)
-async def get_campaign(campaign_id: int, db: Session = Depends(get_db)):
-    """Get campaign details"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+    db.refresh(campaign)
     
     return campaign
 
 
-@app.post("/campaigns/{campaign_id}/send")
-async def send_campaign(
-    campaign_id: int,
-    background_tasks: BackgroundTasks,
+@app.get("/campaigns", response_model=List[BlastCampaignResponse])
+async def list_blast_campaigns(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(RequirePermission("blast:read")),
     db: Session = Depends(get_db)
 ):
-    """Start sending a campaign"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    if campaign.status not in ["draft", "scheduled"]:
-        raise HTTPException(status_code=400, detail=f"Campaign cannot be sent. Status: {campaign.status}")
-    
-    # Update status
-    campaign.status = "sending"
-    db.commit()
-    
-    # Start sending in background
-    background_tasks.add_task(
-        process_campaign,
-        campaign_id,
-        campaign.recipients,
-        campaign.message_text,
-        campaign.media_url,
-        campaign.whatsapp_account_id,
-        db
-    )
-    
-    return {"status": "sending_started", "campaign_id": campaign_id}
+    """List all blast campaigns for current user"""
+    campaigns = db.query(BlastCampaign).filter(
+        BlastCampaign.user_id == current_user.id
+    ).offset(skip).limit(limit).all()
+    return campaigns
 
 
-async def process_campaign(
+@app.get("/campaigns/{campaign_id}", response_model=BlastCampaignResponse)
+async def get_blast_campaign(
     campaign_id: int,
-    recipients: List[str],
-    message: str,
-    media_url: Optional[str],
-    whatsapp_account_id: int,
-    db: Session
+    current_user: User = Depends(RequirePermission("blast:read")),
+    db: Session = Depends(get_db)
 ):
-    """Background task to process campaign"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
-    if not campaign:
-        return
-    
-    # Get WhatsApp account
-    wa_account = db.query(WhatsAppAccount).filter(
-        WhatsAppAccount.id == whatsapp_account_id
+    """Get specific blast campaign"""
+    campaign = db.query(BlastCampaign).filter(
+        BlastCampaign.id == campaign_id,
+        BlastCampaign.user_id == current_user.id
     ).first()
-    
-    if not wa_account or wa_account.status != "connected":
-        campaign.status = "failed"
-        campaign.failed_count = len(recipients)
-        db.commit()
-        return
-    
-    # Process in batches of 50
-    batch_size = 50
-    total_sent = 0
-    total_delivered = 0
-    total_failed = 0
-    
-    for i in range(0, len(recipients), batch_size):
-        batch = recipients[i:i + batch_size]
-        
-        results = await blast_manager.send_batch(
-            campaign_id=campaign_id,
-            recipients=batch,
-            message=message,
-            media_url=media_url
-        )
-        
-        for result in results:
-            if result["success"]:
-                total_delivered += 1
-            else:
-                total_failed += 1
-            total_sent += 1
-        
-        # Update progress
-        campaign.sent_count = total_sent
-        campaign.delivered_count = total_delivered
-        campaign.failed_count = total_failed
-        db.commit()
-        
-        # Delay between batches to avoid rate limiting
-        await asyncio.sleep(random.uniform(5, 10))
-    
-    campaign.status = "completed"
-    db.commit()
-
-
-@app.post("/upload-media")
-async def upload_media(
-    file: UploadFile = File(...),
-    campaign_id: Optional[int] = None
-):
-    """Upload media file for campaign"""
-    # Validate file type
-    allowed_types = ["image/jpeg", "image/png", "image/jpg", "video/mp4"]
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
-        )
-    
-    # In production, upload to S3 or similar
-    # For now, just return mock URL
-    media_type = "image" if "image" in file.content_type else "video"
-    mock_url = f"https://storage.example.com/media/{file.filename}"
-    
-    return {
-        "success": True,
-        "media_url": mock_url,
-        "media_type": media_type,
-        "filename": file.filename,
-        "content_type": file.content_type
-    }
-
-
-@app.delete("/campaigns/{campaign_id}")
-async def delete_campaign(campaign_id: int, db: Session = Depends(get_db)):
-    """Delete a campaign"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
     if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
+    return campaign
+
+
+@app.put("/campaigns/{campaign_id}", response_model=BlastCampaignResponse)
+async def update_blast_campaign(
+    campaign_id: int,
+    campaign_update: BlastCampaignUpdate,
+    current_user: User = Depends(RequirePermission("blast:update")),
+    db: Session = Depends(get_db)
+):
+    """Update blast campaign"""
+    campaign = db.query(BlastCampaign).filter(
+        BlastCampaign.id == campaign_id,
+        BlastCampaign.user_id == current_user.id
+    ).first()
+    if not campaign:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
     
-    if campaign.status == "sending":
-        raise HTTPException(status_code=400, detail="Cannot delete active campaign")
+    if campaign.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only update draft campaigns"
+        )
+    
+    if campaign_update.name:
+        campaign.name = campaign_update.name
+    if campaign_update.message:
+        campaign.message = campaign_update.message
+    if campaign_update.recipient_list:
+        campaign.recipient_list = campaign_update.recipient_list
+    if campaign_update.media_url:
+        campaign.media_url = campaign_update.media_url
+    if campaign_update.scheduled_at:
+        campaign.scheduled_at = campaign_update.scheduled_at
+        campaign.status = "scheduled"
+    
+    db.commit()
+    db.refresh(campaign)
+    return campaign
+
+
+@app.delete("/campaigns/{campaign_id}", response_model=MessageResponse)
+async def delete_blast_campaign(
+    campaign_id: int,
+    current_user: User = Depends(RequirePermission("blast:delete")),
+    db: Session = Depends(get_db)
+):
+    """Delete blast campaign"""
+    campaign = db.query(BlastCampaign).filter(
+        BlastCampaign.id == campaign_id,
+        BlastCampaign.user_id == current_user.id
+    ).first()
+    if not campaign:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
     
     db.delete(campaign)
     db.commit()
     
-    return {"status": "deleted", "campaign_id": campaign_id}
+    return MessageResponse(message="Campaign deleted successfully")
 
 
-@app.get("/campaigns/{campaign_id}/stats")
-async def get_campaign_stats(campaign_id: int, db: Session = Depends(get_db)):
-    """Get campaign statistics"""
-    campaign = db.query(BlastCampaign).filter(BlastCampaign.id == campaign_id).first()
+@app.post("/campaigns/{campaign_id}/send", response_model=MessageResponse)
+async def send_blast_campaign(
+    campaign_id: int,
+    current_user: User = Depends(RequirePermission("blast:send")),
+    db: Session = Depends(get_db)
+):
+    """Send blast campaign immediately"""
+    campaign = db.query(BlastCampaign).filter(
+        BlastCampaign.id == campaign_id,
+        BlastCampaign.user_id == current_user.id
+    ).first()
     if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
     
-    total = len(campaign.recipients)
-    success_rate = (campaign.delivered_count / total * 100) if total > 0 else 0
+    if campaign.status not in ["draft", "scheduled"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Campaign cannot be sent"
+        )
     
-    return {
-        "campaign_id": campaign_id,
-        "total_recipients": total,
-        "sent": campaign.sent_count,
-        "delivered": campaign.delivered_count,
-        "failed": campaign.failed_count,
-        "success_rate": f"{success_rate:.2f}%",
-        "status": campaign.status
+    campaign.status = "sending"
+    db.commit()
+    
+    # In production, this would trigger a background task
+    return MessageResponse(message="Campaign sending started")
+
+
+@app.post("/media/upload", response_model=MediaUploadResponse)
+async def upload_media(
+    file: UploadFile = File(...),
+    current_user: User = Depends(RequirePermission("blast:with_media")),
+):
+    """Upload media file (image/video/document) for blast campaigns"""
+    import uuid
+    import os
+    
+    allowed_types = {
+        "image/jpeg": "image",
+        "image/png": "image",
+        "image/gif": "image",
+        "video/mp4": "video",
+        "application/pdf": "document",
     }
+    
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File type not supported. Allowed: image, video, pdf"
+        )
+    
+    # Generate unique filename
+    file_extension = file.filename.split(".")[-1] if "." in file.filename else "bin"
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    
+    # Save file (in production, use S3 or cloud storage)
+    upload_dir = "/tmp/media_uploads"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    
+    media_url = f"/media/{unique_filename}"
+    media_type = allowed_types[file.content_type]
+    
+    return MediaUploadResponse(
+        media_url=media_url,
+        media_type=media_type,
+        file_name=file.filename,
+        file_size=len(content)
+    )
 
 
 if __name__ == "__main__":

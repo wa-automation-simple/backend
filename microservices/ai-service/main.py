@@ -1,324 +1,288 @@
 """
-AI Service - AI-powered auto-replies with token management
-Handles: auto-reply, token deduction, AI integration
+AI Service - Auto-reply with AI, token management with markup pricing
 """
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import Optional, List
-import random
+from typing import List, Optional, Dict
+from shared.utils.database import get_db, engine, Base
+from shared.schemas.serializers import (
+    AutoReplyCreate, AutoReplyResponse, AutoReplyUpdate,
+    AIRequest, AIResponse, TokenBalanceResponse, TokenTopup,
+    TokenTransactionResponse, MessageResponse
+)
+from shared.models.tables import User, AutoReply, TokenBalance, TokenTransaction
+from shared.models.rbac import RequirePermission
+from shared.config.settings import settings
 
-from shared.database import get_db
-from shared.models import AutoReply, TokenBalance, User, WhatsAppAccount
-from shared.schemas import AutoReplyCreate, AutoReplyResponse, AIRequest, AIResponse
-from shared.utils import calculate_token_cost, estimate_ai_tokens
-from shared.config import settings
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AI Service", version="1.0.0")
+app = FastAPI(
+    title="AI Service",
+    description="AI Auto-Reply and Token Management with Markup Pricing",
+    version="1.0.0"
+)
 
-
-class AIEngine:
-    """Mock AI engine for generating responses"""
-    
-    def __init__(self):
-        self.providers = {
-            "openai": self._mock_openai,
-            "anthropic": self._mock_anthropic,
-            "local": self._mock_local
-        }
-    
-    async def generate_response(
-        self,
-        message: str,
-        context: Optional[str] = None,
-        max_tokens: int = 100,
-        provider: str = "openai"
-    ) -> dict:
-        """Generate AI response"""
-        if provider not in self.providers:
-            raise HTTPException(status_code=400, detail=f"Unknown AI provider: {provider}")
-        
-        return await self.providers[provider](message, context, max_tokens)
-    
-    async def _mock_openai(self, message: str, context: str, max_tokens: int) -> dict:
-        """Mock OpenAI response"""
-        # Simulate AI processing
-        response_text = self._generate_contextual_response(message, context)
-        tokens_used = estimate_ai_tokens(response_text)
-        cost = calculate_token_cost(tokens_used, settings.TOKEN_MARKUP_PRICE)
-        
-        return {
-            "response": response_text,
-            "tokens_used": tokens_used,
-            "cost": cost,
-            "provider": "openai"
-        }
-    
-    async def _mock_anthropic(self, message: str, context: str, max_tokens: int) -> dict:
-        """Mock Anthropic response"""
-        response_text = self._generate_contextual_response(message, context)
-        tokens_used = estimate_ai_tokens(response_text)
-        cost = calculate_token_cost(tokens_used, settings.TOKEN_MARKUP_PRICE)
-        
-        return {
-            "response": response_text,
-            "tokens_used": tokens_used,
-            "cost": cost,
-            "provider": "anthropic"
-        }
-    
-    async def _mock_local(self, message: str, context: str, max_tokens: int) -> dict:
-        """Mock local model response"""
-        response_text = self._generate_contextual_response(message, context)
-        tokens_used = estimate_ai_tokens(response_text)
-        # Local models are cheaper
-        cost = calculate_token_cost(tokens_used, 5.0)
-        
-        return {
-            "response": response_text,
-            "tokens_used": tokens_used,
-            "cost": cost,
-            "provider": "local"
-        }
-    
-    def _generate_contextual_response(self, message: str, context: Optional[str]) -> str:
-        """Generate contextual response (mock)"""
-        responses = {
-            "greeting": [
-                "Hello! How can I help you today?",
-                "Hi there! What can I do for you?",
-                "Greetings! Feel free to ask me anything."
-            ],
-            "pricing": [
-                "Our pricing starts at $10/month. Would you like more details?",
-                "We offer flexible pricing plans. Let me know what features you need!",
-                "Check out our website for detailed pricing information."
-            ],
-            "support": [
-                "I'm here to help! What issue are you experiencing?",
-                "Let me assist you with that. Can you provide more details?",
-                "Our support team is ready to help. What's the problem?"
-            ],
-            "default": [
-                "Thanks for your message! I'll get back to you soon.",
-                "I received your message. How can I assist you?",
-                "Thank you for contacting us. What would you like to know?"
-            ]
-        }
-        
-        message_lower = message.lower()
-        
-        if any(word in message_lower for word in ["hi", "hello", "hey", "good morning", "good afternoon"]):
-            category = "greeting"
-        elif any(word in message_lower for word in ["price", "cost", "payment", "buy", "purchase"]):
-            category = "pricing"
-        elif any(word in message_lower for word in ["help", "support", "issue", "problem", "error"]):
-            category = "support"
-        else:
-            category = "default"
-        
-        return random.choice(responses[category])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-ai_engine = AIEngine()
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "ai-service"}
 
 
-@app.post("/auto-reply/configure", response_model=AutoReplyResponse)
-async def configure_auto_reply(
+# ============== AUTO REPLY ENDPOINTS ==============
+
+@app.post("/auto-reply", response_model=AutoReplyResponse)
+async def create_auto_reply(
     reply_data: AutoReplyCreate,
+    current_user: User = Depends(RequirePermission("auto_reply:create")),
     db: Session = Depends(get_db)
 ):
-    """Configure auto-reply for a WhatsApp account"""
-    db_reply = AutoReply(
-        user_id=1,  # Would come from JWT
+    """Create auto-reply rule (with optional AI)"""
+    reply = AutoReply(
+        user_id=current_user.id,
         whatsapp_account_id=reply_data.whatsapp_account_id,
         trigger_keyword=reply_data.trigger_keyword,
-        reply_message=reply_data.reply_message,
+        response_message=reply_data.response_message,
         use_ai=reply_data.use_ai,
-        is_active=reply_data.is_active
+        ai_context=reply_data.ai_context,
+        priority=reply_data.priority
     )
     
-    db.add(db_reply)
+    db.add(reply)
     db.commit()
-    db.refresh(db_reply)
-    
-    return db_reply
+    db.refresh(reply)
+    return reply
 
 
 @app.get("/auto-reply", response_model=List[AutoReplyResponse])
 async def list_auto_replies(
-    user_id: int,
-    whatsapp_account_id: Optional[int] = None,
+    current_user: User = Depends(RequirePermission("auto_reply:read")),
     db: Session = Depends(get_db)
 ):
-    """List all auto-reply configurations"""
-    query = db.query(AutoReply).filter(AutoReply.user_id == user_id)
-    
-    if whatsapp_account_id:
-        query = query.filter(AutoReply.whatsapp_account_id == whatsapp_account_id)
-    
-    replies = query.all()
+    """List all auto-reply rules"""
+    replies = db.query(AutoReply).filter(
+        AutoReply.user_id == current_user.id
+    ).all()
     return replies
 
 
-@app.post("/auto-reply/process")
-async def process_incoming_message(
-    message: str,
-    sender: str,
-    whatsapp_account_id: int,
+@app.put("/auto-reply/{reply_id}", response_model=AutoReplyResponse)
+async def update_auto_reply(
+    reply_id: int,
+    reply_update: AutoReplyUpdate,
+    current_user: User = Depends(RequirePermission("auto_reply:update")),
     db: Session = Depends(get_db)
 ):
-    """Process incoming message and generate auto-reply"""
-    # Find matching auto-reply rules
-    auto_replies = db.query(AutoReply).filter(
-        AutoReply.whatsapp_account_id == whatsapp_account_id,
-        AutoReply.is_active == True
-    ).all()
-    
-    matched_rule = None
-    
-    # Check for keyword matches
-    for rule in auto_replies:
-        if rule.trigger_keyword and rule.trigger_keyword.lower() in message.lower():
-            matched_rule = rule
-            break
-    
-    if not matched_rule:
-        # Use default AI if enabled for any rule
-        ai_rules = [r for r in auto_replies if r.use_ai]
-        if ai_rules:
-            matched_rule = ai_rules[0]
-    
-    if not matched_rule:
-        return {
-            "reply": None,
-            "used_ai": False,
-            "tokens_used": 0,
-            "cost": 0
-        }
-    
-    # Generate reply
-    if matched_rule.use_ai:
-        # Check token balance
-        token_balance = db.query(TokenBalance).filter(
-            TokenBalance.user_id == matched_rule.user_id
-        ).first()
-        
-        if not token_balance or token_balance.balance <= 0:
-            raise HTTPException(
-                status_code=402,
-                detail="Insufficient token balance. Please top up."
-            )
-        
-        # Generate AI response
-        ai_response = await ai_engine.generate_response(
-            message=message,
-            context=f"Conversation with {sender}",
-            max_tokens=100
+    """Update auto-reply rule"""
+    reply = db.query(AutoReply).filter(
+        AutoReply.id == reply_id,
+        AutoReply.user_id == current_user.id
+    ).first()
+    if not reply:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Auto-reply not found"
         )
-        
-        # Deduct tokens
-        cost = ai_response["cost"]
-        if token_balance.balance >= cost:
-            token_balance.balance -= cost
-            token_balance.tokens_used += ai_response["tokens_used"]
-            db.commit()
-            
-            return {
-                "reply": ai_response["response"],
-                "used_ai": True,
-                "tokens_used": ai_response["tokens_used"],
-                "cost": cost,
-                "remaining_balance": token_balance.balance
-            }
-        else:
-            raise HTTPException(
-                status_code=402,
-                detail=f"Insufficient balance. Required: ${cost}, Available: ${token_balance.balance}"
-            )
-    else:
-        # Use predefined reply
-        return {
-            "reply": matched_rule.reply_message,
-            "used_ai": False,
-            "tokens_used": 0,
-            "cost": 0
-        }
+    
+    if reply_update.trigger_keyword is not None:
+        reply.trigger_keyword = reply_update.trigger_keyword
+    if reply_update.response_message is not None:
+        reply.response_message = reply_update.response_message
+    if reply_update.use_ai is not None:
+        reply.use_ai = reply_update.use_ai
+    if reply_update.ai_context is not None:
+        reply.ai_context = reply_update.ai_context
+    if reply_update.is_active is not None:
+        reply.is_active = reply_update.is_active
+    if reply_update.priority is not None:
+        reply.priority = reply_update.priority
+    
+    db.commit()
+    db.refresh(reply)
+    return reply
 
+
+@app.delete("/auto-reply/{reply_id}", response_model=MessageResponse)
+async def delete_auto_reply(
+    reply_id: int,
+    current_user: User = Depends(RequirePermission("auto_reply:delete")),
+    db: Session = Depends(get_db)
+):
+    """Delete auto-reply rule"""
+    reply = db.query(AutoReply).filter(
+        AutoReply.id == reply_id,
+        AutoReply.user_id == current_user.id
+    ).first()
+    if not reply:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Auto-reply not found"
+        )
+    
+    db.delete(reply)
+    db.commit()
+    return MessageResponse(message="Auto-reply deleted successfully")
+
+
+# ============== AI PROCESSING ENDPOINTS ==============
 
 @app.post("/ai/generate", response_model=AIResponse)
 async def generate_ai_response(
-    request: AIRequest,
-    user_id: int,
+    request_data: AIRequest,
+    current_user: User = Depends(RequirePermission("ai:use")),
     db: Session = Depends(get_db)
 ):
-    """Generate AI response with token deduction"""
-    # Check token balance
+    """Generate AI response for incoming message"""
+    # Get user's token balance
     token_balance = db.query(TokenBalance).filter(
-        TokenBalance.user_id == user_id
+        TokenBalance.user_id == current_user.id
     ).first()
     
-    if not token_balance:
-        raise HTTPException(status_code=404, detail="Token balance not found")
-    
-    # Estimate cost
-    estimated_tokens = estimate_ai_tokens(request.message) * 2  # Input + output
-    estimated_cost = calculate_token_cost(estimated_tokens, settings.TOKEN_MARKUP_PRICE)
-    
-    if token_balance.balance < estimated_cost:
+    if not token_balance or token_balance.balance <= 0:
         raise HTTPException(
-            status_code=402,
-            detail=f"Insufficient balance. Estimated cost: ${estimated_cost:.2f}"
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Insufficient token balance. Please top up."
         )
     
-    # Generate response
-    ai_response = await ai_engine.generate_response(
-        message=request.message,
-        context=request.context,
-        max_tokens=request.max_tokens
-    )
+    # Calculate tokens needed (simplified)
+    tokens_needed = 1.0  # 1 message = 1 token
+    cost = tokens_needed * settings.TOKEN_SELL_PRICE  # $10 per token (markup from $3)
     
-    # Deduct actual cost
-    actual_cost = ai_response["cost"]
-    token_balance.balance -= actual_cost
-    token_balance.tokens_used += ai_response["tokens_used"]
+    if token_balance.balance < cost:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient balance. Need ${cost}, have ${token_balance.balance}"
+        )
+    
+    # Generate AI response (in production, call OpenAI API)
+    ai_response = f"[AI] Based on your message '{request_data.message}', here's a helpful response..."
+    
+    if request_data.context:
+        ai_response += f"\nContext considered: {request_data.context}"
+    
+    # Deduct tokens
+    token_balance.balance -= cost
+    token_balance.total_used += cost
+    
+    # Record transaction
+    transaction = TokenTransaction(
+        token_balance_id=token_balance.id,
+        amount=-cost,
+        transaction_type="usage",
+        description=f"AI response for: {request_data.message[:50]}"
+    )
+    db.add(transaction)
     db.commit()
     
     return AIResponse(
-        response=ai_response["response"],
-        tokens_used=ai_response["tokens_used"],
-        cost=actual_cost
+        response=ai_response,
+        tokens_used=tokens_needed,
+        cost=cost
     )
 
 
-@app.get("/token/balance/{user_id}")
-async def get_token_balance(user_id: int, db: Session = Depends(get_db)):
-    """Get user's token balance"""
-    balance = db.query(TokenBalance).filter(TokenBalance.user_id == user_id).first()
+# ============== TOKEN MANAGEMENT ENDPOINTS ==============
+
+@app.get("/tokens/balance", response_model=TokenBalanceResponse)
+async def get_token_balance(
+    current_user: User = Depends(RequirePermission("token:view")),
+    db: Session = Depends(get_db)
+):
+    """Get current token balance"""
+    balance = db.query(TokenBalance).filter(
+        TokenBalance.user_id == current_user.id
+    ).first()
     
     if not balance:
-        raise HTTPException(status_code=404, detail="Token balance not found")
+        # Create balance record if doesn't exist
+        balance = TokenBalance(user_id=current_user.id, balance=0.0)
+        db.add(balance)
+        db.commit()
+        db.refresh(balance)
     
-    return {
-        "user_id": user_id,
-        "balance": balance.balance,
-        "tokens_used": balance.tokens_used,
-        "last_updated": balance.last_updated
-    }
+    return TokenBalanceResponse(
+        user_id=balance.user_id,
+        balance=balance.balance,
+        total_purchased=balance.total_purchased,
+        total_used=balance.total_used,
+        base_price_per_token=settings.TOKEN_BASE_PRICE,  # $3
+        sell_price_per_token=settings.TOKEN_SELL_PRICE   # $10 (markup)
+    )
 
 
-@app.get("/token/pricing")
-async def get_token_pricing():
-    """Get current token pricing"""
-    return {
-        "base_price_per_1000": settings.TOKEN_BASE_PRICE,
-        "markup_price_per_1000": settings.TOKEN_MARKUP_PRICE,
-        "currency": "USD",
-        "providers": {
-            "openai": settings.TOKEN_MARKUP_PRICE,
-            "anthropic": settings.TOKEN_MARKUP_PRICE,
-            "local": 5.0
-        }
-    }
+@app.post("/tokens/topup", response_model=TokenBalanceResponse)
+async def topup_tokens(
+    topup_data: TokenTopup,
+    current_user: User = Depends(RequirePermission("token:topup")),
+    db: Session = Depends(get_db)
+):
+    """Top up token balance (with markup pricing)"""
+    # Get or create token balance
+    balance = db.query(TokenBalance).filter(
+        TokenBalance.user_id == current_user.id
+    ).first()
+    
+    if not balance:
+        balance = TokenBalance(user_id=current_user.id, balance=0.0)
+        db.add(balance)
+    
+    # Calculate tokens to add based on markup pricing
+    # User pays $10 per token, but we show base price is $3
+    tokens_to_add = topup_data.amount / settings.TOKEN_SELL_PRICE
+    
+    # Update balance
+    balance.balance += tokens_to_add * settings.TOKEN_SELL_PRICE  # Add in dollar value
+    balance.total_purchased += topup_data.amount
+    
+    # Record transaction
+    transaction = TokenTransaction(
+        token_balance_id=balance.id,
+        amount=topup_data.amount,
+        transaction_type="purchase",
+        description=f"Topup via {topup_data.payment_method}"
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(balance)
+    
+    return TokenBalanceResponse(
+        user_id=balance.user_id,
+        balance=balance.balance,
+        total_purchased=balance.total_purchased,
+        total_used=balance.total_used,
+        base_price_per_token=settings.TOKEN_BASE_PRICE,
+        sell_price_per_token=settings.TOKEN_SELL_PRICE
+    )
+
+
+@app.get("/tokens/transactions", response_model=List[TokenTransactionResponse])
+async def get_token_transactions(
+    limit: int = 50,
+    current_user: User = Depends(RequirePermission("token:view")),
+    db: Session = Depends(get_db)
+):
+    """Get token transaction history"""
+    balance = db.query(TokenBalance).filter(
+        TokenBalance.user_id == current_user.id
+    ).first()
+    
+    if not balance:
+        return []
+    
+    transactions = db.query(TokenTransaction).filter(
+        TokenTransaction.token_balance_id == balance.id
+    ).order_by(TokenTransaction.created_at.desc()).limit(limit).all()
+    
+    return transactions
 
 
 if __name__ == "__main__":

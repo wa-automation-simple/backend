@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wa_saas
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wa_network
+
+  # Redis (for caching & Celery)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - wa_network
+
+  # API Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth-service
+      - whatsapp-service
+      - blast-service
+      - ai-service
+      - payment-service
+      - followup-service
+      - scheduler-service
+    networks:
+      - wa_network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - wa_network
+
+  # WhatsApp Service
+  whatsapp-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: whatsapp-service
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+  # Blast Service
+  blast-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: blast-service
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+  # AI Service
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: ai-service
+    ports:
+      - "8005:8005"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+      AI_API_KEY: ${AI_API_KEY:-}
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+  # Payment Service
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: payment-service
+    ports:
+      - "8006:8006"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+  # Follow-up Service
+  followup-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: followup-service
+    ports:
+      - "8007:8007"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+  # Scheduler Service
+  scheduler-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: scheduler-service
+    ports:
+      - "8008:8008"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wa_saas
+    depends_on:
+      - postgres
+    networks:
+      - wa_network
+
+volumes:
+  postgres_data:
+
+networks:
+  wa_network:
+    driver: bridge
