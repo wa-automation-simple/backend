@@ -1,8 +1,8 @@
 """Token Package Service"""
 from typing import List
 from sqlalchemy.orm import Session
-from payment.models.package.repository import PackageRepository
-from payment.models.package.schemas import TokenPackageCreate
+from payment.modules.package.repository import PackageRepository
+from payment.modules.package.schemas import TokenPackageCreate
 
 
 class PackageService:

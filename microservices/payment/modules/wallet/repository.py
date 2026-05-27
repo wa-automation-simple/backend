@@ -1,7 +1,7 @@
 """Token Wallet Repository"""
 from sqlalchemy.orm import Session
 from typing import Optional
-from payment.models.wallet.wallet import TokenWallet
+from payment.modules.wallet.model import TokenWallet
 from datetime import datetime
 
 

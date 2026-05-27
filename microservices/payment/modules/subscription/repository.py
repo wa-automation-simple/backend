@@ -1,7 +1,7 @@
 """Subscription Repository"""
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from payment.models.subscription.subscription import Subscription
+from payment.modules.subscription.subscription import Subscription
 from datetime import datetime
 
 

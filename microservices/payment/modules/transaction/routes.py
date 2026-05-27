@@ -1,8 +1,8 @@
 """Token Transaction Routes"""
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from payment.models.transaction.service import TransactionService
-from payment.models.transaction.schemas import (
+from payment.modules.transaction.service import TransactionService
+from payment.modules.transaction.schemas import (
     TokenTopup, 
     TokenTransactionResponse, 
     PaymentCreate,
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 def get_transaction_service():
     """Dependency to get transaction service"""
     from sqlalchemy.orm import Session
-    from payment.core.database import SessionLocal
+    from payment.config import SessionLocal
     db = SessionLocal()
     try:
         return TransactionService(db)

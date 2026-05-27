@@ -1,7 +1,7 @@
 """Token Wallet Routes"""
 from fastapi import APIRouter, Depends
-from payment.models.wallet.service import WalletService
-from payment.models.wallet.schemas import TokenBalanceResponse
+from payment.modules.wallet.service import WalletService
+from payment.modules.wallet.schemas import TokenBalanceResponse
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
@@ -9,7 +9,7 @@ router = APIRouter(prefix="/wallet", tags=["wallet"])
 def get_wallet_service(db):
     """Dependency to get wallet service"""
     from sqlalchemy.orm import Session
-    from payment.core.database import SessionLocal
+    from payment.config import SessionLocal
     db = SessionLocal()
     try:
         return WalletService(db)

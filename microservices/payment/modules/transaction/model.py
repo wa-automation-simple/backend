@@ -1,8 +1,8 @@
 """Token Transaction Model"""
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum as SQLEnum
 from datetime import datetime
-from payment.core.database import Base
-from payment.models.transaction.enums import PaymentStatus
+from payment.config import Base
+from payment.modules.transaction.enums import PaymentStatus
 
 
 class TokenTransaction(Base):

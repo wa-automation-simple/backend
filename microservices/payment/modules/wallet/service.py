@@ -1,8 +1,8 @@
 """Token Wallet Service"""
 from typing import Optional
 from sqlalchemy.orm import Session
-from payment.models.wallet.repository import WalletRepository
-from payment.models.wallet.schemas import TokenBalanceResponse
+from payment.modules.wallet.repository import WalletRepository
+from payment.modules.wallet.schemas import TokenBalanceResponse
 
 
 class WalletService:

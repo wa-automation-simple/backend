@@ -1,7 +1,7 @@
 """Token Wallet Model"""
 from sqlalchemy import Column, Integer, Float, DateTime
 from datetime import datetime
-from payment.core.database import Base
+from payment.config import Base
 
 
 class TokenWallet(Base):

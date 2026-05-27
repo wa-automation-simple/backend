@@ -1,7 +1,7 @@
 """Token Package Repository"""
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from payment.models.package.package import TokenPackage
+from payment.modules.package.package import TokenPackage
 
 
 class PackageRepository:

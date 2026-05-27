@@ -1,9 +1,9 @@
 """Subscription Service"""
 from typing import Optional
 from sqlalchemy.orm import Session
-from payment.models.subscription.repository import SubscriptionRepository
-from payment.models.wallet.service import WalletService
-from payment.models.subscription.schemas import SubscriptionCreate
+from payment.modules.subscription.repository import SubscriptionRepository
+from payment.modules.wallet.service import WalletService
+from payment.modules.subscription.schemas import SubscriptionCreate
 from datetime import datetime, timedelta
 
 

@@ -1,7 +1,7 @@
 """Token Package Model"""
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
 from datetime import datetime
-from payment.core.database import Base
+from payment.config import Base
 
 
 class TokenPackage(Base):

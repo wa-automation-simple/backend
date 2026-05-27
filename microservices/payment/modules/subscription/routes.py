@@ -1,7 +1,7 @@
 """Subscription Routes"""
 from fastapi import APIRouter, Depends, HTTPException
-from payment.models.subscription.service import SubscriptionService
-from payment.models.subscription.schemas import SubscriptionCreate, SubscriptionResponse
+from payment.modules.subscription.service import SubscriptionService
+from payment.modules.subscription.schemas import SubscriptionCreate, SubscriptionResponse
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -9,7 +9,7 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 def get_subscription_service():
     """Dependency to get subscription service"""
     from sqlalchemy.orm import Session
-    from payment.core.database import SessionLocal
+    from payment.config import SessionLocal
     db = SessionLocal()
     try:
         return SubscriptionService(db)

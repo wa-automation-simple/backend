@@ -1,10 +1,10 @@
 """Token Transaction Service"""
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from payment.models.transaction.repository import TransactionRepository
-from payment.models.wallet.service import WalletService
-from payment.models.transaction.schemas import TokenTopup, PaymentCreate
-from payment.models.transaction.enums import PaymentStatus
+from payment.modules.transaction.repository import TransactionRepository
+from payment.modules.wallet.service import WalletService
+from payment.modules.transaction.schemas import TokenTopup, PaymentCreate
+from payment.modules.transaction.enums import PaymentStatus
 from payment.config import settings
 
 
@@ -19,7 +19,7 @@ class TransactionService:
         wallet = self.wallet_service.get_or_create_wallet(user_id)
         
         if data.package_id:
-            from payment.models.package.service import PackageService
+            from payment.modules.package.service import PackageService
             package_service = PackageService(self.db)
             package = package_service.get_package(data.package_id)
             if not package:

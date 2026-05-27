@@ -1,8 +1,8 @@
 """Token Transaction Repository"""
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from payment.models.transaction.transaction import TokenTransaction
-from payment.models.transaction.enums import PaymentStatus
+from payment.modules.transaction.transaction import TokenTransaction
+from payment.modules.transaction.enums import PaymentStatus
 from datetime import datetime
 
 

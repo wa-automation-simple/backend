@@ -2,7 +2,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from payment.models.transaction.enums import PaymentStatus
+from payment.modules.transaction.enums import PaymentStatus
 
 
 class TokenTransactionResponse(BaseModel):
