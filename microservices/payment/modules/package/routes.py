@@ -10,7 +10,7 @@ router = APIRouter(prefix="/packages", tags=["packages"])
 def get_package_service():
     """Dependency to get package service"""
     from sqlalchemy.orm import Session
-    from payment.config import SessionLocal
+    from payment.core.database import SessionLocal
     db = SessionLocal()
     try:
         return PackageService(db)

@@ -9,7 +9,7 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 def get_subscription_service():
     """Dependency to get subscription service"""
     from sqlalchemy.orm import Session
-    from payment.config import SessionLocal
+    from payment.core.database import SessionLocal
     db = SessionLocal()
     try:
         return SubscriptionService(db)

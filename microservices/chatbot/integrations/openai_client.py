@@ -2,7 +2,7 @@
 import asyncio
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from openai import AsyncOpenAI
-from ..config import settings
+from ..core.config import settings
 
 
 class OpenAIClient:

@@ -2,7 +2,7 @@
 import asyncio
 from typing import Optional, Dict, Any, List
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
-from ..config import settings
+from ..core.config import settings
 
 
 class WhatsAppAutomation:

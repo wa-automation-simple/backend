@@ -1,7 +1,7 @@
 """Subscription Model"""
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
 from datetime import datetime
-from payment.config import Base
+from payment.core.database import Base
 
 
 class Subscription(Base):

@@ -2,7 +2,7 @@
 from typing import TypedDict, Annotated, List, Optional, Dict, Any
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from ..config import settings
+from ..core.config import settings
 
 
 class ChatState(TypedDict):
