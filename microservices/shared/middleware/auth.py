@@ -1,125 +1,114 @@
-"""
-RBAC Middleware for request authentication and authorization
-"""
+"""Shared middleware for all microservices."""
 from fastapi import Request, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Callable
+import logging
 
-from shared.security import decode_access_token
-from shared.config import settings
-
-
-# RBAC Permissions Matrix
-PERMISSIONS = {
-    "super_admin": ["*"],  # All permissions
-    "admin": [
-        "user:read", "user:create", "user:update",
-        "wa_account:*", "blast:*", "ai:*",
-        "payment:read", "followup:*", "recovery:*"
-    ],
-    "manager": [
-        "user:read",
-        "wa_account:read", "wa_account:create", "wa_account:update",
-        "blast:read", "blast:create", "blast:send",
-        "ai:use", "ai_token:read", "ai_token:purchase",
-        "followup:*", "auto_reply:*"
-    ],
-    "user": [
-        "user:read:self",
-        "wa_account:read:self", "wa_account:create:self",
-        "blast:read:self", "blast:create:self",
-        "ai:use:self", "ai_token:read:self", "ai_token:purchase:self",
-        "followup:read:self", "auto_reply:manage:self"
-    ],
-    "trial": [
-        "user:read:self",
-        "wa_account:read:self",
-        "blast:read:self",
-        "ai:use:self:limited"
-    ]
-}
+logger = logging.getLogger(__name__)
 
 
-class AuthMiddleware:
-    """Authentication and Authorization middleware."""
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Authentication middleware to validate JWT tokens."""
     
-    def __init__(self):
-        self.bearer_scheme = HTTPBearer(auto_error=False)
+    def __init__(self, app, get_current_user: Callable):
+        super().__init__(app)
+        self.get_current_user = get_current_user
     
-    async def __call__(self, request: Request):
-        """Validate JWT token and check permissions."""
-        # Skip auth for certain paths
-        skip_paths = ["/health", "/docs", "/openapi.json", "/register", "/login"]
-        if any(request.url.path.startswith(path) for path in skip_paths):
-            return
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for public endpoints
+        if request.url.path in ["/health", "/docs", "/openapi.json"]:
+            return await call_next(request)
+        
+        # Skip auth for login/register endpoints
+        if request.url.path.startswith("/api/v1/auth/"):
+            return await call_next(request)
         
         # Get token from header
-        credentials: HTTPAuthorizationCredentials = await self.bearer_scheme(request)
-        
-        if not credentials:
-            raise HTTPException(
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
-                headers={"WWW-Authenticate": "Bearer"},
+                content={"detail": "Missing or invalid authorization header"}
             )
         
-        # Decode token
-        payload = decode_access_token(credentials.credentials)
-        if not payload:
-            raise HTTPException(
+        token = auth_header.split(" ")[1]
+        
+        try:
+            current_user = await self.get_current_user(token)
+            if current_user is None:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Invalid or expired token"}
+                )
+            
+            # Attach user to request state
+            request.state.current_user = current_user
+        except Exception as e:
+            logger.error(f"Auth middleware error: {str(e)}")
+            return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
+                content={"detail": "Authentication failed"}
             )
         
-        # Attach user info to request state
-        request.state.user_id = payload.get("sub")
-        request.state.user_role = payload.get("role", "user")
-        request.state.username = payload.get("username")
+        return await call_next(request)
+
+
+class RBACMiddleware(BaseHTTPMiddleware):
+    """RBAC middleware to check user permissions."""
     
-    @staticmethod
-    def check_permission(user_role: str, required_permission: str) -> bool:
-        """Check if a role has the required permission."""
-        if user_role not in PERMISSIONS:
-            return False
+    def __init__(self, app, required_permission: str):
+        super().__init__(app)
+        self.required_permission = required_permission
+    
+    async def dispatch(self, request: Request, call_next):
+        # Get current user from request state
+        current_user = getattr(request.state, "current_user", None)
         
-        user_permissions = PERMISSIONS[user_role]
-        
-        # Super admin has all permissions
-        if "*" in user_permissions:
-            return True
-        
-        # Check exact match or wildcard
-        for perm in user_permissions:
-            if perm == required_permission:
-                return True
-            # Check wildcard (e.g., "blast:*" matches "blast:create")
-            if perm.endswith(":*"):
-                prefix = perm[:-2]
-                if required_permission.startswith(prefix):
-                    return True
-        
-        return False
-
-
-auth_middleware = AuthMiddleware()
-
-
-def require_permission(permission: str):
-    """Dependency to require specific permission."""
-    async def permission_checker(request: Request):
-        user_role = getattr(request.state, "user_role", None)
-        if not user_role:
-            raise HTTPException(
+        if current_user is None:
+            return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
+                content={"detail": "Authentication required"}
             )
         
-        if not AuthMiddleware.check_permission(user_role, permission):
-            raise HTTPException(
+        # Check if user has required permission
+        user_permissions = current_user.get("permissions", [])
+        if self.required_permission not in user_permissions:
+            return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {permission}"
+                content={"detail": f"Permission denied. Required: {self.required_permission}"}
             )
         
-        return True
+        return await call_next(request)
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    """Logging middleware for request/response tracking."""
     
-    return permission_checker
+    async def dispatch(self, request: Request, call_next):
+        # Log request
+        logger.info(f"{request.method} {request.url.path} - {request.client.host}")
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Log response
+        logger.info(f"Response status: {response.status_code}")
+        
+        return response
+
+
+class ErrorHandlingMiddleware(BaseHTTPMiddleware):
+    """Global error handling middleware."""
+    
+    async def dispatch(self, request: Request, call_next):
+        try:
+            return await call_next(request)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Unhandled error: {str(e)}", exc_info=True)
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Internal server error"}
+            )

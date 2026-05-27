@@ -1,21 +1,25 @@
-"""
-WhatsApp Service Configuration
-Dedicated database for WhatsApp account management
-"""
-import os
-from pydantic import BaseSettings
+"""Configuration for WhatsApp Service."""
+from pydantic_settings import BaseSettings
 
 
 class WhatsAppSettings(BaseSettings):
-    SERVICE_NAME: str = "whatsapp-service"
-    SERVICE_PORT: int = 8003
+    """WhatsApp service configuration."""
     
-    # Dedicated database for whatsapp service
-    DATABASE_URL: str = os.getenv("WHATSAPP_DATABASE_URL", "postgresql://wa_user:wa_pass@postgres-whatsapp:5432/whatsapp_db")
+    # Service info
+    SERVICE_NAME: str = "whatsapp-service"
+    SERVICE_VERSION: str = "1.0.0"
+    
+    # Database
+    DATABASE_URL: str = "postgresql://postgres:postgres@whatsapp-db:5432/whatsapp_db"
     
     # WhatsApp API settings
-    WA_API_KEY: str = os.getenv("WA_API_KEY", "")
-    WA_SESSION_TIMEOUT: int = 3600  # 1 hour
+    WA_API_URL: str = "https://api.whatsapp.com"
+    WA_WEBHOOK_SECRET: str = "whatsapp-webhook-secret"
+    
+    # Warmup settings
+    WARMUP_DEFAULT_DAYS: int = 30
+    WARMUP_MAX_MESSAGES_DAY1: int = 5
+    WARMUP_INCREMENT_PER_DAY: int = 3
     
     class Config:
         env_file = ".env"
