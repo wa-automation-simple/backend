@@ -1,24 +1,22 @@
 """
-Auth Service Main Application
-Dedicated database for authentication and user management
+Payment Service - Main application entry point
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from auth_service.config import settings
-from auth_service.routes.auth_routes import router as auth_router
+from payment_service.config import settings
 
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
-    description="Authentication and User Management Service",
+    description="Payment and Billing Service",
     version="1.0.0"
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,10 +31,6 @@ async def health_check():
         "service": settings.SERVICE_NAME,
         "port": settings.SERVICE_PORT
     }
-
-
-# Include routers
-app.include_router(auth_router)
 
 
 if __name__ == "__main__":
