@@ -1,35 +1,33 @@
-"""
-Auth Service Main Application
-"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from shared.utils.database import engine, Base
-from auth_service.routes import auth
+from auth_service.config.database import engine, Base
+from auth_service.routes.auth_routes import router as auth_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Auth Service",
-    description="Authentication and Authorization Microservice for WhatsApp SaaS",
+    description="Authentication and User Management Service for WhatsApp SaaS",
     version="1.0.0"
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(auth.router)
+app.include_router(auth_router)
 
 
 @app.get("/health")
-async def health_check():
+def health_check():
+    """Health check endpoint"""
     return {"status": "healthy", "service": "auth-service"}
 
 

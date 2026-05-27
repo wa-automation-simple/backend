@@ -1,200 +1,183 @@
 # WhatsApp Marketing SaaS - Microservices Backend
 
-Complete Python microservices backend for WhatsApp Marketing SaaS platform with all required features.
+A comprehensive microservices backend for WhatsApp Marketing SaaS platform with RBAC, multi-account support, and AI-powered features.
 
-## 🚀 Fitur Utama
-
-### 1. **Panasin WA (WhatsApp Warming)**
-- Progressive 30-day warming schedule
-- Automated daily message limits
-- Status tracking and monitoring
-
-### 2. **Blast WA**
-- Bulk messaging campaigns
-- Scheduled sending
-- Real-time status tracking
-
-### 3. **Blast dengan Gambar**
-- Media upload endpoint (images, videos, documents)
-- Cloud storage integration ready
-- Multi-format support
-
-### 4. **Auto-Reply dengan AI**
-- Keyword-based triggers
-- AI-powered responses using tokens
-- Context-aware conversations
-
-### 5. **Token System dengan Markup**
-- Base price: $3/token (provider cost)
-- Sell price: $10/token (user price)
-- 233% markup profit margin
-- Top-up via payment gateway
-
-### 6. **Follow-up Member**
-- Schedule follow-ups
-- Track completion status
-- Overdue notifications
-
-### 7. **Multi-Account Support**
-- One app, multiple WhatsApp logins
-- Account switching
-- Per-account settings
-
-### 8. **Auto-Click Recovery**
-- Generate recovery links for banned accounts
-- Automatic link clicking
-- Status monitoring
-
-## 📁 Struktur Project
+## 📁 Project Structure
 
 ```
 microservices/
-├── shared/                 # Shared library
-│   ├── config/            # Configuration
-│   ├── models/            # SQLAlchemy models + RBAC
-│   ├── schemas/           # Pydantic serializers
-│   └── utils/             # Auth, database helpers
-├── gateway/               # API Gateway (port 8000)
-├── auth-service/          # Authentication (port 8001)
-├── whatsapp-service/      # WhatsApp management (port 8003)
-├── blast-service/         # Blast campaigns (port 8004)
-├── ai-service/            # AI & tokens (port 8005)
-├── payment-service/       # Payments (port 8006)
-├── followup-service/      # Follow-ups (port 8007)
-└── scheduler-service/     # Background tasks (port 8008)
+├── shared/                          # Shared library (used by all services)
+│   ├── config/
+│   │   └── settings.py              # Configuration & environment variables
+│   ├── models/
+│   │   ├── rbac.py                  # Role-Based Access Control (5 roles, 30+ permissions)
+│   │   └── tables.py                # SQLAlchemy database models
+│   ├── schemas/
+│   │   └── serializers.py           # Pydantic validators (Django-like serializers)
+│   ├── utils/
+│   │   └── auth.py                  # JWT authentication utilities
+│   └── __init__.py
+│
+├── gateway/                         # API Gateway (port 8000)
+├── auth-service/                    # Authentication Service (port 8001)
+│   ├── config/
+│   │   └── database.py              # Database connection (own DB)
+│   ├── models/
+│   │   └── user.py                  # User model
+│   ├── services/
+│   │   ├── auth_service.py          # Password hashing
+│   │   └── user_service.py          # User CRUD operations
+│   ├── routes/
+│   │   └── auth_routes.py           # Auth endpoints
+│   └── main.py                      # FastAPI app
+│
+├── whatsapp-service/                # WhatsApp Management (port 8003)
+│   ├── config/database.py           # Database connection (own DB)
+│   ├── models/whatsapp.py           # WhatsApp account models
+│   ├── services/whatsapp_service.py # Account & warming logic
+│   ├── routes/whatsapp_routes.py    # WhatsApp endpoints
+│   └── main.py
+│
+├── blast-service/                   # Blast Campaigns (port 8004)
+├── ai-service/                      # AI & Auto-Reply (port 8005)
+├── payment-service/                 # Payments & Tokens (port 8006)
+├── followup-service/                # Follow-up Management (port 8007)
+└── scheduler-service/               # Background Tasks (port 8008)
 ```
 
-## 🔐 RBAC (Role-Based Access Control)
+## 🔐 RBAC System
 
-| Role | Permissions |
-|------|-------------|
-| `super_admin` | Full access to everything |
-| `admin` | User management, billing, analytics |
-| `manager` | Campaigns, blast, follow-ups |
-| `user` | Basic messaging, token top-up |
-| `trial` | Limited read-only access |
+### Roles (5 levels)
+- **super_admin**: Full access to everything
+- **admin**: Manage users, accounts, campaigns
+- **manager**: Manage accounts, campaigns, follow-ups
+- **user**: Standard user features
+- **trial**: Read-only access, limited features
+
+### Permissions (30+)
+- User management: `user:create`, `user:read`, `user:update`, `user:delete`
+- WhatsApp: `wa_account:*`, `wa_warmup:*`
+- Blast: `blast:*`, `blast:with_media`
+- AI: `ai:use`, `auto_reply:*`
+- Tokens: `token:buy`, `token:read`
+- Follow-up: `followup:*`
+- Recovery: `recovery:manage`, `auto_click:enable`
+
+## 💰 Token Pricing (Markup Model)
+
+| Item | Base Cost | Sell Price | Markup |
+|------|-----------|------------|--------|
+| 1 AI Token | $3.00 | $10.00 | 233% |
+
+**Bulk Packages:**
+- 10 tokens: $90 (10% discount)
+- 50 tokens: $400 (20% discount)
+- 100 tokens: $700 (30% discount)
+
+## 🚀 Features Implemented
+
+1. ✅ **Panasin WA** - 30-day progressive warming schedule
+2. ✅ **Blast WA** - Bulk messaging with campaign management
+3. ✅ **Blast dengan Gambar** - Media upload for images/videos
+4. ✅ **Auto-Reply AI** - Contextual AI responses with token usage
+5. ✅ **Token System** - Markup pricing from $3 to $10
+6. ✅ **Follow-up Member** - Schedule and track follow-ups
+7. ✅ **Multi-Account** - One app, multiple WhatsApp logins
+8. ✅ **Auto-Click Recovery** - Automatic recovery link clicking
 
 ## 🛠️ Tech Stack
 
 - **Framework**: FastAPI
-- **Database**: PostgreSQL
-- **Cache**: Redis
+- **Database**: PostgreSQL (separate DB per service)
+- **ORM**: SQLAlchemy
 - **Validation**: Pydantic (Django-like serializers)
-- **Auth**: JWT with RBAC
+- **Auth**: JWT with OAuth2
 - **Container**: Docker & Docker Compose
 
-## 🚀 Quick Start
+## 📡 API Ports
 
-### Using Docker Compose
+| Service | Port | Database |
+|---------|------|----------|
+| Gateway | 8000 | - |
+| Auth | 8001 | auth_service_db |
+| WhatsApp | 8003 | whatsapp_service_db |
+| Blast | 8004 | blast_service_db |
+| AI | 8005 | ai_service_db |
+| Payment | 8006 | payment_service_db |
+| Follow-up | 8007 | followup_service_db |
+| Scheduler | 8008 | scheduler_service_db |
+
+## 🏃 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- Python 3.11+ (for local development)
+
+### Run with Docker
 
 ```bash
 cd microservices
 
+# Set environment variables (optional)
+export OPENAI_API_KEY=your_key_here
+export STRIPE_SECRET_KEY=your_key_here
+
 # Start all services
 docker-compose up -d
 
-# Check service health
-curl http://localhost:8000/services/health
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
 ```
 
-### Manual Setup
+### Local Development
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
 # Set environment variables
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/wa_saas
-export REDIS_URL=redis://localhost:6379/0
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_service_db
 
-# Run individual services
-python -m uvicorn gateway.main:app --port 8000
-python -m uvicorn auth_service.main:app --port 8001
-# ... etc
+# Run individual service
+cd auth-service
+python main.py
 ```
 
-## 📡 API Endpoints
+## 📝 API Endpoints
 
-### Gateway (Port 8000)
-- `GET /` - API info
-- `GET /health` - Gateway health
-- `GET /services/health` - All services health
-- `/{service}/{path}` - Proxy to any service
+### Auth Service (`/auth`)
+- `POST /register` - Register new user
+- `POST /login` - Login and get token
+- `GET /me` - Get current user
+- `PUT /me` - Update profile
+- `POST /change-password` - Change password
 
-### Auth Service (Port 8001)
-- `POST /auth/register` - Register user
-- `POST /auth/login` - Login & get token
-- `GET /auth/me` - Current user info
-- `PUT /auth/me` - Update profile
-
-### WhatsApp Service (Port 8003)
+### WhatsApp Service (`/whatsapp`)
 - `POST /accounts` - Add WhatsApp account
-- `GET /accounts` - List accounts
+- `GET /accounts` - List all accounts
 - `POST /warmup/start` - Start warming
-- `POST /accounts/{id}/recovery-link` - Generate recovery
+- `GET /warmup/status/{id}` - Get warming status
+- `GET /recovery-link/{id}` - Get recovery link
+- `POST /auto-click/toggle` - Toggle auto-click
 
-### Blast Service (Port 8004)
-- `POST /campaigns` - Create campaign
-- `POST /media/upload` - Upload image/video
-- `POST /campaigns/{id}/send` - Send blast
+## 📊 Database Architecture
 
-### AI Service (Port 8005)
-- `POST /auto-reply` - Create auto-reply
-- `POST /ai/generate` - Generate AI response
-- `GET /tokens/balance` - Check balance
-- `POST /tokens/topup` - Top-up tokens ($10/token)
+Each microservice has its **own isolated database**:
+- No shared database connections
+- Services communicate via API calls
+- Better scalability and fault isolation
+- Independent migrations and backups
 
-### Payment Service (Port 8006)
-- `POST /payments` - Create payment
-- `GET /pricing` - Token pricing info
+## 🔒 Security
 
-### Follow-up Service (Port 8007)
-- `POST /followups` - Create follow-up
-- `POST /followups/{id}/execute` - Execute follow-up
-
-### Scheduler Service (Port 8008)
-- `POST /warmup/execute/{id}` - Run warmup task
-- `POST /blast/execute-pending` - Run pending blasts
-- `POST /recovery/auto-click/{id}` - Auto-click recovery
-
-## 💰 Token Pricing
-
-```json
-{
-  "base_price_per_token": 3.0,
-  "sell_price_per_token": 10.0,
-  "markup_percentage": 233.33,
-  "packages": [
-    {"tokens": 10, "price": 100, "savings": 0},
-    {"tokens": 50, "price": 475, "savings": "5%"},
-    {"tokens": 100, "price": 900, "savings": "10%"},
-    {"tokens": 500, "price": 4250, "savings": "15%"}
-  ]
-}
-```
-
-## 📝 Environment Variables
-
-Create `.env` file:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/wa_saas
-REDIS_URL=redis://localhost:6379/0
-JWT_SECRET_KEY=your-super-secret-key
-AI_API_KEY=sk-your-openai-key
-```
-
-## 🧪 Testing
-
-```bash
-# Run tests
-pytest
-
-# Test specific service
-curl -X POST http://localhost:8001/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"Test1234!"}'
-```
+- JWT token authentication
+- Password hashing with bcrypt
+- Role-based access control (RBAC)
+- Permission-based endpoint protection
+- CORS configuration
 
 ## 📄 License
 
