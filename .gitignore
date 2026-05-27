@@ -27,37 +27,32 @@ ENV/
 env.bak/
 .venv/
 
-# Dependencies
-node_modules/
-julia-*/
-zig*/
-
-# IDE and editor files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
 
 # Logs
 *.log
 
-# Environment variables
-.env
-.env.local
-.env.*
-
 # Coverage
 .coverage
-htmlcov/
 coverage/
+htmlcov/
+.coverage.*
 
-# Docker and containers
-.dockerenv
-Dockerfile*
-docker-compose*
+# Testing
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 ```
