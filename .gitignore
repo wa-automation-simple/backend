@@ -1,75 +1,28 @@
 ```
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv/
-.env/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs
+*.pyc
+*.pyo
+*.pyd
 *.log
-
-# Coverage
-.coverage
-htmlcov/
-.coverage.*
-
-# Testing
-.pytest_cache/
-.mypy_cache/
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment variables
+*.tmp
 .env
 .env.local
-*.env.*
-
-# OS generated files
+.env.*
+.vscode/
+.idea/
+dist/
+build/
+target/
+node_modules/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+.coverage
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
 ```
