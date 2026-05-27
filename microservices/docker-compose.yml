@@ -1,184 +1,207 @@
 version: '3.8'
 
 services:
-  # Databases - Each service has its own database
+  # ============ API Gateway ============
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - WHATSAPP_SERVICE_URL=http://whatsapp-service:8003
+      - BLAST_SERVICE_URL=http://blast-service:8004
+      - AI_SERVICE_URL=http://ai-service:8005
+      - PAYMENT_SERVICE_URL=http://payment-service:8006
+      - FOLLOWUP_SERVICE_URL=http://followup-service:8007
+    depends_on:
+      - auth-service
+      - whatsapp-service
+      - blast-service
+      - ai-service
+      - payment-service
+      - followup-service
+    networks:
+      - microservices-net
+
+  # ============ Auth Service ============
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+    depends_on:
+      - auth-db
+    networks:
+      - microservices-net
+
   auth-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: auth_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
     volumes:
       - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ WhatsApp Service ============
+  whatsapp-service:
+    build: ./whatsapp-service
     ports:
-      - "5432:5432"
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@whatsapp-db:5432/whatsapp_db
+    depends_on:
+      - whatsapp-db
+    networks:
+      - microservices-net
 
   whatsapp-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: whatsapp_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=whatsapp_db
     volumes:
       - whatsapp-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ Blast Service ============
+  blast-service:
+    build: ./blast-service
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@blast-db:5432/blast_db
+    depends_on:
+      - blast-db
+    networks:
+      - microservices-net
 
   blast-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: blast_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=blast_db
     volumes:
       - blast-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ AI Service ============
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@ai-db:5432/ai_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      - ai-db
+    networks:
+      - microservices-net
 
   ai-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: ai_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ai_db
     volumes:
       - ai-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ Payment Service ============
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_db
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+    depends_on:
+      - payment-db
+    networks:
+      - microservices-net
 
   payment-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: payment_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=payment_db
     volumes:
       - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ Follow-up Service ============
+  followup-service:
+    build: ./followup-service
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@followup-db:5432/followup_db
+    depends_on:
+      - followup-db
+    networks:
+      - microservices-net
 
   followup-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: followup_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=followup_db
     volumes:
       - followup-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # ============ Scheduler Service ============
+  scheduler-service:
+    build: ./scheduler-service
+    ports:
+      - "8008:8008"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@scheduler-db:5432/scheduler_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - scheduler-db
+      - redis
+    networks:
+      - microservices-net
 
   scheduler-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: scheduler_service_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=scheduler_db
     volumes:
       - scheduler-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
 
-  # API Gateway
-  gateway:
-    build: .
-    command: python gateway/main.py
+  # ============ Redis (for caching & queues) ============
+  redis:
+    image: redis:7-alpine
     ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service_db
-    depends_on:
-      - auth-db
+      - "6379:6379"
     volumes:
-      - ./shared:/app/shared
+      - redis-data:/data
+    networks:
+      - microservices-net
 
-  # Auth Service
-  auth-service:
-    build: .
-    command: python auth-service/main.py
-    ports:
-      - "8001:8001"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service_db
-    depends_on:
-      - auth-db
-    volumes:
-      - ./shared:/app/shared
-      - ./auth-service:/app/auth-service
-
-  # WhatsApp Service
-  whatsapp-service:
-    build: .
-    command: python whatsapp-service/main.py
-    ports:
-      - "8003:8003"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@whatsapp-db:5432/whatsapp_service_db
-    depends_on:
-      - whatsapp-db
-    volumes:
-      - ./shared:/app/shared
-      - ./whatsapp-service:/app/whatsapp-service
-
-  # Blast Service
-  blast-service:
-    build: .
-    command: python blast-service/main.py
-    ports:
-      - "8004:8004"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@blast-db:5432/blast_service_db
-    depends_on:
-      - blast-db
-    volumes:
-      - ./shared:/app/shared
-      - ./blast-service:/app/blast-service
-
-  # AI Service
-  ai-service:
-    build: .
-    command: python ai-service/main.py
-    ports:
-      - "8005:8005"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@ai-db:5432/ai_service_db
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    depends_on:
-      - ai-db
-    volumes:
-      - ./shared:/app/shared
-      - ./ai-service:/app/ai-service
-
-  # Payment Service
-  payment-service:
-    build: .
-    command: python payment-service/main.py
-    ports:
-      - "8006:8006"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_service_db
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-    depends_on:
-      - payment-db
-    volumes:
-      - ./shared:/app/shared
-      - ./payment-service:/app/payment-service
-
-  # Follow-up Service
-  followup-service:
-    build: .
-    command: python followup-service/main.py
-    ports:
-      - "8007:8007"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@followup-db:5432/followup_service_db
-    depends_on:
-      - followup-db
-    volumes:
-      - ./shared:/app/shared
-      - ./followup-service:/app/followup-service
-
-  # Scheduler Service
-  scheduler-service:
-    build: .
-    command: python scheduler-service/main.py
-    ports:
-      - "8008:8008"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@scheduler-db:5432/scheduler_service_db
-    depends_on:
-      - scheduler-db
-    volumes:
-      - ./shared:/app/shared
-      - ./scheduler-service:/app/scheduler-service
+networks:
+  microservices-net:
+    driver: bridge
 
 volumes:
   auth-db-data:
@@ -188,3 +211,4 @@ volumes:
   payment-db-data:
   followup-db-data:
   scheduler-db-data:
+  redis-data:
