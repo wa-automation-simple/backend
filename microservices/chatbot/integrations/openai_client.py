@@ -2,15 +2,19 @@
 import asyncio
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from openai import AsyncOpenAI
-from ..core.config import settings
+from chatbot.core.config import settings
 
 
 class OpenAIClient:
     """Client for interacting with OpenAI API"""
     
-    def __init__(self):
-        self.api_key = settings.OPENAI_API_KEY
-        self.client = AsyncOpenAI(api_key=self.api_key)
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or settings.OPENAI_API_KEY
+        # Only initialize client if API key is provided
+        if self.api_key:
+            self.client = AsyncOpenAI(api_key=self.api_key)
+        else:
+            self.client = None
         self.default_model = "gpt-4"
         self.default_max_tokens = 1024
         self.default_temperature = 0.7

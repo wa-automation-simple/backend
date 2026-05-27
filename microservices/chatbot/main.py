@@ -1,7 +1,7 @@
 """Chatbot Service Main Entry Point"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .config import settings
+from .core.config import settings
 
 # Import routers from each module
 from .modules.chatbot.routes import router as chatbot_router
@@ -40,7 +40,7 @@ app.include_router(conversation_router, prefix="/api/v1/conversations", tags=["C
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    from .database import init_db
+    from .core.database import init_db
     init_db()
 
 
