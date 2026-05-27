@@ -1,31 +1,9 @@
 ```
-# Dependencies
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.venv.bak/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/modules/
-*.sublime-workspace
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Distribution / packaging
+*.py[cod]
+*$py.class
+*.so
 .Python
 build/
 develop-eggs/
@@ -43,46 +21,72 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment
-.env
-.venv
-env/
+# Virtual environments
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
+.venv/
+.env/
+
+# Alembic
+alembic/versions/
+
+# Dependencies
+node_modules/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-.DS_Store
-Thumbs.db
 
 # Logs
 *.log
-*.out
-*.pid
-*.seed
-*.id
-*.core
 
-# Testing
-.coverage
-.htmlcov/
-.tox/
-.nox/
-coverage.lcov
+# Environment variables
+.env
+.env.local
+*.env.*
 
-# OS generated files
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-Thumbs.db:encryptable
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 ```
