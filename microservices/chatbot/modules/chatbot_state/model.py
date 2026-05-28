@@ -1,6 +1,6 @@
 """ChatbotState module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime
 

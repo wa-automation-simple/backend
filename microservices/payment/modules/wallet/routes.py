@@ -9,7 +9,7 @@ router = APIRouter(prefix="/wallet", tags=["wallet"])
 def get_wallet_service(db):
     """Dependency to get wallet service"""
     from sqlalchemy.orm import Session
-    from payment.config import SessionLocal
+    from payment.core.database import SessionLocal
     db = SessionLocal()
     try:
         return WalletService(db)

@@ -23,7 +23,7 @@ class Conversation(Base):
     is_archived = Column(Boolean, default=False)
     
     # Metadata
-    metadata = Column(JSON, nullable=True)  # Custom metadata
+    custom_metadata = Column(JSON, nullable=True)  # Custom metadata
     context_window = Column(Integer, default=10)  # Messages to keep in context
     
     # Statistics

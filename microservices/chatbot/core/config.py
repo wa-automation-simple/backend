@@ -1,14 +1,14 @@
-"""Payment Service Configuration"""
+"""Chatbot Service Configuration"""
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    SERVICE_NAME: str = "Payment Service"
+    SERVICE_NAME: str = "Chatbot Service"
     VERSION: str = "1.0.0"
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/payment_db"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/chatbot_db"
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
@@ -20,15 +20,11 @@ class Settings(BaseSettings):
     
     # External Services
     AUTH_SERVICE_URL: str = "http://auth:8000"
+    WHATSAPP_SERVICE_URL: str = "http://whatsapp:8000"
     
-    # Xendit Payment Gateway
-    XENDIT_SECRET_KEY: str = ""
-    XENDIT_PUBLIC_KEY: str = ""
-    XENDIT_BASE_URL: str = "https://api.xendit.co"
-    XENDIT_WEBHOOK_TOKEN: str = ""
-    
-    # Callback URLs
-    PAYMENT_CALLBACK_URL: str = "http://payment:8000/api/v1/payment/callback"
+    # AI/LLM
+    OPENAI_API_KEY: str = ""
+    LANGCHAIN_API_KEY: str = ""
     
     class Config:
         env_file = ".env"
