@@ -1,12 +1,20 @@
 """Database Connection and Session Management"""
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from .config import settings
 
-# Create engine with connection pool settings
-engine = create_engine(
-    settings.DATABASE_URL,
+# # Create engine with connection pool settings
+# engine = create_engine(
+#     settings.DATABASE_URL,
+#     pool_pre_ping=True,
+#     pool_size=10,
+#     max_overflow=20,
+#     echo=False
+# )
+engine = create_async_engine(
+    settings.DATABASE_URL, 
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
@@ -32,9 +40,14 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Initialize database tables"""
-    Base.metadata.create_all(bind=engine)
+# def init_db():
+#     """Initialize database tables"""
+#     Base.metadata.create_all(bind=engine)
+
+async def init_db():
+    """Create all tables (idempotent)"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 def close_db():

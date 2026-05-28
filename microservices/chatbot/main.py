@@ -41,9 +41,18 @@ app.include_router(conversation_router, prefix="/api/v1/conversations", tags=["C
 async def startup_event():
     """Initialize database on startup"""
     from .core.database import init_db
-    init_db()
+    await init_db()
+
+@app.get("/")
+async def root():
+    return {"message": "Chatbot service is running"}
 
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": settings.SERVICE_NAME}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("chatbot.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,11 +1,16 @@
 """User module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from enum import Enum
 
 from auth.core.database import Base
 
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
+    MODERATOR = "moderator"
 
 class User(Base):
     """User table for authentication and authorization."""
