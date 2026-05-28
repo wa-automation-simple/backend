@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 class HttpMethod(str, Enum):
@@ -18,7 +19,6 @@ class HttpMethod(str, Enum):
 
 class ChatbotToolCreate(BaseModel):
     """Schema for creating a new chatbot_tool."""
-    chatbot_id: int
     name: str
     tool_type: str = "api"  # "api", "code", "builtin"
     
@@ -71,8 +71,8 @@ class ChatbotToolUpdate(BaseModel):
 
 class ChatbotToolResponse(BaseModel):
     """Schema for chatbot_tool response."""
-    id: int
-    chatbot_id: int
+    id: UUID
+    chatbot_id: UUID
     name: str
     tool_type: str
     method: Optional[str] = None

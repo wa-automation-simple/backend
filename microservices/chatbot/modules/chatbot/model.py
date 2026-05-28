@@ -1,8 +1,10 @@
 """Chatbot module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Table
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON, Table
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 
 from chatbot.core.database import Base
 
@@ -11,16 +13,16 @@ from chatbot.core.database import Base
 chatbot_agent_tools = Table(
     'chatbot_agent_tools',
     Base.metadata,
-    Column('agent_id', Integer, ForeignKey('chatbot_agents.id'), primary_key=True),
-    Column('tool_id', Integer, ForeignKey('chatbot_tools.id'), primary_key=True)
+    Column('agent_id', UUID(as_uuid=True), ForeignKey('chatbot_agents.id'), primary_key=True),
+    Column('tool_id', UUID(as_uuid=True), ForeignKey('chatbot_tools.id'), primary_key=True)
 )
 
 
 class Chatbot(Base):
     __tablename__ = "chatbots"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     
@@ -43,4 +45,5 @@ class Chatbot(Base):
     # Relationships - only nodes directly, agents/tools linked via nodes
     nodes = relationship("ChatbotNode", back_populates="chatbot", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="chatbot", cascade="all, delete-orphan")
+    tools = relationship("ChatbotTool", back_populates="chatbot", cascade="all, delete-orphan")
 

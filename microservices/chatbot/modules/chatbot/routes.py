@@ -1,9 +1,10 @@
 """API routes for Chatbot module."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from pydantic import BaseModel
+from uuid import UUID
 import secrets
 
 from chatbot.core.database import get_db
@@ -16,9 +17,9 @@ router = APIRouter(prefix="/chatbots", tags=["Chatbots"])
 
 class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
-    chatbot_id: int
+    chatbot_id: UUID
     message: str
-    conversation_id: Optional[int] = None
+    conversation_id: Optional[UUID] = None
     user_id: Optional[str] = None
     context: Optional[dict] = None
 
@@ -26,61 +27,61 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Response model for chat endpoint"""
     response: str
-    conversation_id: int
+    conversation_id: UUID
     messages: list
 
 
 @router.post("", response_model=ChatbotResponse, status_code=status.HTTP_201_CREATED)
 async def create_item(
     item_data: ChatbotCreate, 
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     """Create a new chatbot with agents, tools, and nodes in one request."""
     service = ChatbotService(db)
-    # Extract user_id from authenticated user
+    # Extract user_id from authenticated user (should be UUID now)
     user_id = current_user.get('user_id') or current_user.get('id')
-    return service.create_item(item_data=item_data, user_id=user_id)
+    return await service.create_item(item_data=item_data, user_id=user_id)
 
 
 @router.get("", response_model=List[ChatbotResponse])
-def list_items(user_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def list_items(user_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
     """List all items, optionally filtered by user_id."""
     service = ChatbotService(db)
-    return service.list_items(user_id=user_id)
+    return await service.list_items(user_id=user_id)
 
 
 @router.get("/{item_id}", response_model=ChatbotResponse)
-def get_item(item_id: int, db: Session = Depends(get_db)):
+async def get_item(item_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get chatbot by ID."""
     service = ChatbotService(db)
-    item = service.get_item(item_id)
+    item = await service.get_item(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Chatbot not found")
     return item
 
 
 @router.put("/{item_id}", response_model=ChatbotResponse)
-def update_item(item_id: int, item_data: ChatbotUpdate, db: Session = Depends(get_db)):
+async def update_item(item_id: UUID, item_data: ChatbotUpdate, db: AsyncSession = Depends(get_db)):
     """Update chatbot."""
     service = ChatbotService(db)
-    item = service.update_item(item_id, item_data)
+    item = await service.update_item(item_id, item_data)
     if not item:
         raise HTTPException(status_code=404, detail="Chatbot not found")
     return item
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+async def delete_item(item_id: UUID, db: AsyncSession = Depends(get_db)):
     """Delete a chatbot."""
     service = ChatbotService(db)
-    success = service.delete_item(item_id)
+    success = await service.delete_item(item_id)
     if not success:
         raise HTTPException(status_code=404, detail="Chatbot not found")
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_with_bot(request: ChatRequest, db: Session = Depends(get_db)):
+async def chat_with_bot(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     """Send a message to a chatbot using static token authentication."""
     service = ChatbotService(db)
     
@@ -96,22 +97,22 @@ async def chat_with_bot(request: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/{item_id}/token/regenerate", response_model=ChatbotResponse)
-def regenerate_token(item_id: int, db: Session = Depends(get_db)):
+async def regenerate_token(item_id: UUID, db: AsyncSession = Depends(get_db)):
     """Regenerate static token for a chatbot."""
     service = ChatbotService(db)
-    new_token = service.regenerate_static_token(item_id)
+    new_token = await service.regenerate_static_token(item_id)
     if not new_token:
         raise HTTPException(status_code=404, detail="Chatbot not found")
-    return service.get_item(item_id)
+    return await service.get_item(item_id)
 
 
 @router.post("/chat-by-token/{static_token}", response_model=ChatResponse)
-async def chat_by_token(static_token: str, request: ChatRequest, db: Session = Depends(get_db)):
+async def chat_by_token(static_token: str, request: ChatRequest, db: AsyncSession = Depends(get_db)):
     """Send a message to a chatbot using static token in URL path."""
     service = ChatbotService(db)
     
     # Find chatbot by static token
-    chatbot = service.get_by_static_token(static_token)
+    chatbot = await service.get_by_static_token(static_token)
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot not found")
     

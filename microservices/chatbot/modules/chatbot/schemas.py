@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from uuid import UUID
 
 
 # Agent schemas
@@ -75,8 +76,8 @@ class ChatbotNodeCreate(BaseModel):
     retry_count: int = Field(default=3, description="Retry count")
     
     # References to agent and tool (IDs will be assigned during creation)
-    agent_id: Optional[int] = Field(None, description="Reference to agent ID")
-    tool_id: Optional[int] = Field(None, description="Reference to tool ID")
+    agent_id: Optional[UUID] = Field(None, description="Reference to agent ID")
+    tool_id: Optional[UUID] = Field(None, description="Reference to tool ID")
     # For linking by name during creation
     agent_name: Optional[str] = Field(None, description="Name of agent to link")
     tool_name: Optional[str] = Field(None, description="Name of tool to link")
@@ -116,7 +117,7 @@ class ChatbotUpdate(BaseModel):
 
 class ChatbotAgentResponse(BaseModel):
     """Schema for agent response."""
-    id: int
+    id: UUID
     name: str
     role: str
     description: Optional[str]
@@ -135,7 +136,7 @@ class ChatbotAgentResponse(BaseModel):
 
 class ChatbotToolResponse(BaseModel):
     """Schema for tool response."""
-    id: int
+    id: UUID
     name: str
     tool_type: str
     method: Optional[str]
@@ -155,10 +156,10 @@ class ChatbotToolResponse(BaseModel):
 
 class ChatbotNodeResponse(BaseModel):
     """Schema for node response."""
-    id: int
-    chatbot_id: int
-    agent_id: Optional[int]
-    tool_id: Optional[int]
+    id: UUID
+    chatbot_id: UUID
+    agent_id: Optional[UUID]
+    tool_id: Optional[UUID]
     node_name: str
     node_type: str
     description: Optional[str]
@@ -178,8 +179,8 @@ class ChatbotNodeResponse(BaseModel):
 
 class ChatbotResponse(BaseModel):
     """Schema for chatbot response."""
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     name: str
     description: Optional[str]
     graph_config: Optional[Dict[str, Any]]

@@ -1,8 +1,10 @@
 """ChatbotNode module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 
 from chatbot.core.database import Base
 
@@ -10,10 +12,10 @@ from chatbot.core.database import Base
 class ChatbotNode(Base):
     __tablename__ = "chatbot_nodes"
 
-    id = Column(Integer, primary_key=True, index=True)
-    chatbot_id = Column(Integer, ForeignKey("chatbots.id"), nullable=False)
-    agent_id = Column(Integer, ForeignKey("chatbot_agents.id"), nullable=True)
-    tool_id = Column(Integer, ForeignKey("chatbot_tools.id"), nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id"), nullable=False)
+    agent_id = Column(UUID(as_uuid=True), ForeignKey("chatbot_agents.id"), nullable=True)
+    tool_id = Column(UUID(as_uuid=True), ForeignKey("chatbot_tools.id"), nullable=True)
     
     # Node configuration
     node_name = Column(String(255), nullable=False)  # e.g., "researcher_node", "writer_node"

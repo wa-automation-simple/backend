@@ -2,8 +2,9 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Optional, List
-import uuid
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+import uuid as uuid_lib
 from datetime import datetime
 
 from chatbot.modules.chatbot.model import Chatbot
@@ -22,10 +23,10 @@ class ChatbotService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_item(self, item_data: ChatbotCreate, user_id: int) -> Chatbot:
+    async def create_item(self, item_data: ChatbotCreate, user_id: UUID) -> Chatbot:
         """Create a new chatbot with static token and all components (agents, tools, nodes)."""
         # Generate unique static token for /chat endpoint
-        static_token = f"chat_{uuid.uuid4().hex}"
+        static_token = f"chat_{uuid_lib.uuid4().hex}"
         
         # Create the chatbot first
         chatbot = Chatbot(
@@ -42,35 +43,38 @@ class ChatbotService:
         self.db.add(chatbot)
         await self.db.flush()  # Get the ID without committing
         
-        # Create agents
+        # Create agents and track their IDs by name for node linking
+        agent_name_to_id: Dict[str, UUID] = {}
         for agent_data in item_data.agents:
             agent = ChatbotAgent(**agent_data.model_dump())
             self.db.add(agent)
             await self.db.flush()
-            
-            # Link agent to nodes that reference it
-            for node_data in item_data.nodes:
-                if node_data.agent_id is None:
-                    node_data.agent_id = agent.id
+            agent_name_to_id[agent_data.name] = agent.id
         
-        # Create tools
+        # Create tools and track their IDs by name for node linking
+        tool_name_to_id: Dict[str, UUID] = {}
         for tool_data in item_data.tools:
-            tool = ChatbotTool(**tool_data.model_dump())
+            tool = ChatbotTool(chatbot_id=chatbot.id, **tool_data.model_dump())
             self.db.add(tool)
             await self.db.flush()
-            
-            # Link tool to nodes that reference it
-            for node_data in item_data.nodes:
-                if node_data.tool_id is None and hasattr(node_data, 'tool_name'):
-                    if tool_data.name == node_data.tool_name:
-                        node_data.tool_id = tool.id
+            tool_name_to_id[tool_data.name] = tool.id
         
         # Create nodes with proper chatbot_id and agent/tool references
         for node_data in item_data.nodes:
+            # Resolve agent_id from agent_name if provided
+            agent_id = node_data.agent_id
+            if not agent_id and node_data.agent_name:
+                agent_id = agent_name_to_id.get(node_data.agent_name)
+            
+            # Resolve tool_id from tool_name if provided
+            tool_id = node_data.tool_id
+            if not tool_id and node_data.tool_name:
+                tool_id = tool_name_to_id.get(node_data.tool_name)
+            
             node = ChatbotNode(
                 chatbot_id=chatbot.id,
-                agent_id=node_data.agent_id,
-                tool_id=node_data.tool_id,
+                agent_id=agent_id,
+                tool_id=tool_id,
                 node_name=node_data.node_name,
                 node_type=node_data.node_type,
                 description=node_data.description,
@@ -90,7 +94,7 @@ class ChatbotService:
         
         return chatbot
     
-    async def get_item(self, item_id: int) -> Optional[Chatbot]:
+    async def get_item(self, item_id: UUID) -> Optional[Chatbot]:
         """Get chatbot by ID with all relationships loaded."""
         result = await self.db.execute(
             select(Chatbot)
@@ -106,7 +110,7 @@ class ChatbotService:
         )
         return result.scalar_one_or_none()
     
-    async def list_items(self, user_id: Optional[int] = None) -> List[Chatbot]:
+    async def list_items(self, user_id: Optional[UUID] = None) -> List[Chatbot]:
         """List all items, optionally filtered by user_id."""
         query = select(Chatbot)
         if user_id:
@@ -114,7 +118,7 @@ class ChatbotService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
     
-    async def update_item(self, item_id: int, item_data: ChatbotUpdate) -> Optional[Chatbot]:
+    async def update_item(self, item_id: UUID, item_data: ChatbotUpdate) -> Optional[Chatbot]:
         """Update chatbot."""
         chatbot = await self.get_item(item_id)
         if not chatbot:
@@ -128,7 +132,7 @@ class ChatbotService:
         await self.db.refresh(chatbot)
         return chatbot
     
-    async def delete_item(self, item_id: int) -> bool:
+    async def delete_item(self, item_id: UUID) -> bool:
         """Delete a chatbot."""
         chatbot = await self.get_item(item_id)
         if not chatbot:
@@ -140,9 +144,9 @@ class ChatbotService:
     
     async def process_message(
         self,
-        chatbot_id: int,
+        chatbot_id: UUID,
         user_message: str,
-        conversation_id: Optional[int] = None,
+        conversation_id: Optional[UUID] = None,
         user_id: Optional[str] = None,
         context: Optional[dict] = None
     ) -> dict:
@@ -160,13 +164,13 @@ class ChatbotService:
         )
         return result
     
-    async def regenerate_static_token(self, chatbot_id: int) -> Optional[str]:
+    async def regenerate_static_token(self, chatbot_id: UUID) -> Optional[str]:
         """Regenerate static token for a chatbot."""
         chatbot = await self.get_item(chatbot_id)
         if not chatbot:
             return None
         
-        new_token = f"chat_{uuid.uuid4().hex}"
+        new_token = f"chat_{uuid_lib.uuid4().hex}"
         chatbot.static_token = new_token
         await self.db.commit()
         await self.db.refresh(chatbot)

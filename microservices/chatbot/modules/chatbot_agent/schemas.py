@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from uuid import UUID
 
 
 class ChatbotAgentCreate(BaseModel):
@@ -47,7 +48,7 @@ class ChatbotAgentUpdate(BaseModel):
 
 class ChatbotAgentResponse(BaseModel):
     """Schema for chatbot_agent response."""
-    id: int
+    id: UUID
     name: str
     role: str
     description: Optional[str] = None

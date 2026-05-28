@@ -1,9 +1,11 @@
 """ChatbotTool module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+import uuid
 
 from chatbot.core.database import Base
 
@@ -21,8 +23,8 @@ class HttpMethod(str, enum.Enum):
 class ChatbotTool(Base):
     __tablename__ = "chatbot_tools"
 
-    id = Column(Integer, primary_key=True, index=True)
-    chatbot_id = Column(Integer, ForeignKey("chatbots.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id"), nullable=False)
     
     # Tool configuration
     name = Column(String(255), nullable=False)

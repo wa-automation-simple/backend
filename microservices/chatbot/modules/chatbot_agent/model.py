@@ -1,8 +1,10 @@
 """ChatbotAgent module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 
 from chatbot.core.database import Base
 
@@ -10,7 +12,7 @@ from chatbot.core.database import Base
 class ChatbotAgent(Base):
     __tablename__ = "chatbot_agents"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     # Note: No chatbot_id here - agents are global/reusable, linked via Nodes
     
     # Agent configuration
