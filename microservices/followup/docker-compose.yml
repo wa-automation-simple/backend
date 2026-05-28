@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  followup-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@followup-db:5432/followup_db
+    depends_on:
+      - followup-db
+    networks:
+      - followup-net
+    volumes:
+      - ../shared:/app/shared
+
+  followup-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=followup_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - followup-db-data:/var/lib/postgresql/data
+    networks:
+      - followup-net
+
+networks:
+  followup-net:
+    driver: bridge
+
+volumes:
+  followup-db-data:

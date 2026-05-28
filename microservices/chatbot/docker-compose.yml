@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  chatbot-service:
+    build: .
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@chatbot-db:5432/chatbot_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      - chatbot-db
+    networks:
+      - chatbot-net
+    volumes:
+      - ../shared:/app/shared
+
+  chatbot-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=chatbot_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - chatbot-db-data:/var/lib/postgresql/data
+    networks:
+      - chatbot-net
+
+networks:
+  chatbot-net:
+    driver: bridge
+
+volumes:
+  chatbot-db-data:

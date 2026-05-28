@@ -1,6 +1,7 @@
 """Scheduler Service Main Entry Point"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from shared.middleware import AuthMiddleware, log_requests
 from scheduler.config import settings
 from scheduler.api.v1.tasks import router as tasks_router
 
@@ -9,6 +10,12 @@ app = FastAPI(
     description="Scheduler & Recovery Service for WhatsApp Marketing SaaS",
     version="1.0.0"
 )
+
+# Add authentication middleware (handles access_token for all routes)
+app.add_middleware(AuthMiddleware)
+
+# Add request logging middleware
+app.middleware("http")(log_requests)
 
 app.add_middleware(
     CORSMiddleware,

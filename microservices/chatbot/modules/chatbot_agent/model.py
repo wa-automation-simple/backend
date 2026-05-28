@@ -1,8 +1,10 @@
 """ChatbotAgent module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 
 from chatbot.core.database import Base
 
@@ -10,8 +12,8 @@ from chatbot.core.database import Base
 class ChatbotAgent(Base):
     __tablename__ = "chatbot_agents"
 
-    id = Column(Integer, primary_key=True, index=True)
-    chatbot_id = Column(Integer, ForeignKey("chatbots.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    # Note: No chatbot_id here - agents are global/reusable, linked via Nodes
     
     # Agent configuration
     name = Column(String(255), nullable=False)
@@ -23,6 +25,15 @@ class ChatbotAgent(Base):
     temperature = Column(Integer, default=0.7)
     system_prompt = Column(Text, nullable=True)
     
+    # Variable resolution
+    variable_pattern = Column(String(500), nullable=True)  # Regex pattern to extract variables from state
+    dynamic_script = Column(Text, nullable=True)  # One-line Python script for dynamic prompt/config
+    input_variables = Column(JSON, nullable=True)  # List of variable names to extract from state for this agent
+    output_variables = Column(JSON, nullable=True)  # List of variable names where agent output should be stored
+    
+    # Output schema
+    output_schema = Column(JSON, nullable=True)  # Expected output schema for this agent
+    
     # Agent behavior
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)  # For multi-agent orchestration
@@ -33,5 +44,6 @@ class ChatbotAgent(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    chatbot = relationship("Chatbot", back_populates="agents")
+    nodes = relationship("ChatbotNode", back_populates="agent")
+    tools = relationship("ChatbotTool", secondary="chatbot_agent_tools", back_populates="agents")
 
