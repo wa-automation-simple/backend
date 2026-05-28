@@ -20,6 +20,8 @@ class ChatbotAgentCreate(BaseModel):
     # Variable resolution
     variable_pattern: Optional[str] = None
     dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None  # Variables to extract from state for this agent
+    output_variables: Optional[List[str]] = None  # Where to store agent output in state context
     
     # Output schema
     output_schema: Optional[Dict[str, Any]] = None
@@ -40,6 +42,8 @@ class ChatbotAgentUpdate(BaseModel):
     system_prompt: Optional[str] = None
     variable_pattern: Optional[str] = None
     dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None
+    output_variables: Optional[List[str]] = None
     output_schema: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
@@ -55,6 +59,10 @@ class ChatbotAgentResponse(BaseModel):
     model_name: str
     temperature: float
     system_prompt: Optional[str] = None
+    variable_pattern: Optional[str] = None
+    dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None
+    output_variables: Optional[List[str]] = None
     output_schema: Optional[Dict[str, Any]] = None
     is_active: bool
     priority: int

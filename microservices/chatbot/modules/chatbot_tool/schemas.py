@@ -35,6 +35,8 @@ class ChatbotToolCreate(BaseModel):
     # Variable resolution
     variable_pattern: Optional[str] = None
     dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None  # Variables to extract from state for this tool
+    output_variables: Optional[List[str]] = None  # Where to store tool output in state context
     
     # Tool definition
     description: Optional[str] = None
@@ -60,6 +62,8 @@ class ChatbotToolUpdate(BaseModel):
     code_content: Optional[str] = None
     variable_pattern: Optional[str] = None
     dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None
+    output_variables: Optional[List[str]] = None
     description: Optional[str] = None
     tool_schema: Optional[Dict[str, Any]] = None
     output_schema: Optional[Dict[str, Any]] = None
@@ -78,6 +82,10 @@ class ChatbotToolResponse(BaseModel):
     method: Optional[str] = None
     url: Optional[str] = None
     is_code: bool
+    variable_pattern: Optional[str] = None
+    dynamic_script: Optional[str] = None
+    input_variables: Optional[List[str]] = None
+    output_variables: Optional[List[str]] = None
     description: Optional[str] = None
     tool_schema: Optional[Dict[str, Any]] = None
     output_schema: Optional[Dict[str, Any]] = None

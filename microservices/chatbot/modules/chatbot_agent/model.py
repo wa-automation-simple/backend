@@ -28,6 +28,8 @@ class ChatbotAgent(Base):
     # Variable resolution
     variable_pattern = Column(String(500), nullable=True)  # Regex pattern to extract variables from state
     dynamic_script = Column(Text, nullable=True)  # One-line Python script for dynamic prompt/config
+    input_variables = Column(JSON, nullable=True)  # List of variable names to extract from state for this agent
+    output_variables = Column(JSON, nullable=True)  # List of variable names where agent output should be stored
     
     # Output schema
     output_schema = Column(JSON, nullable=True)  # Expected output schema for this agent
