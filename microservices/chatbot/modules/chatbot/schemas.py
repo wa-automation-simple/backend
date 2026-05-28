@@ -14,6 +14,15 @@ class ChatbotAgentCreate(BaseModel):
     model_name: str = Field(default="gpt-4o-mini", description="LLM model name")
     temperature: float = Field(default=0.7, ge=0, le=2, description="Temperature for LLM")
     system_prompt: Optional[str] = Field(None, description="System prompt for the agent")
+    
+    # Variable resolution
+    variable_pattern: Optional[str] = Field(None, description="Regex pattern to extract variables from state")
+    dynamic_script: Optional[str] = Field(None, description="One-line Python script for dynamic config")
+    
+    # Output schema
+    output_schema: Optional[Dict[str, Any]] = Field(None, description="Expected output schema")
+    
+    # Agent behavior
     is_active: bool = Field(default=True, description="Whether agent is active")
     priority: int = Field(default=0, description="Agent priority")
     agent_config: Optional[Dict[str, Any]] = Field(None, description="Additional agent config")
@@ -23,10 +32,29 @@ class ChatbotAgentCreate(BaseModel):
 class ChatbotToolCreate(BaseModel):
     """Schema for creating a chatbot tool."""
     name: str = Field(..., description="Tool name")
-    tool_type: str = Field(..., description="Tool type: builtin, custom, api")
+    tool_type: str = Field(default="api", description="Tool type: api, code, builtin")
     description: Optional[str] = Field(None, description="Tool description")
+    
+    # API Tool settings
+    method: str = Field(default="POST", description="HTTP method")
+    url: Optional[str] = Field(None, description="API URL")
+    headers: Optional[Dict[str, Any]] = Field(None, description="HTTP headers")
+    body_template: Optional[str] = Field(None, description="Request body template")
+    
+    # Code tool settings
+    is_code: bool = Field(default=False, description="Whether this is a code tool")
+    code_content: Optional[str] = Field(None, description="Python code to execute")
+    
+    # Variable resolution
+    variable_pattern: Optional[str] = Field(None, description="Regex pattern to extract variables")
+    dynamic_script: Optional[str] = Field(None, description="One-line Python script for dynamic config")
+    
+    # Schema definitions
     tool_schema: Optional[Dict[str, Any]] = Field(None, description="JSON Schema for tool parameters")
+    output_schema: Optional[Dict[str, Any]] = Field(None, description="Expected output schema")
     tool_config: Optional[Dict[str, Any]] = Field(None, description="Tool configuration")
+    
+    # Execution settings
     is_active: bool = Field(default=True, description="Whether tool is active")
     timeout_seconds: int = Field(default=30, description="Tool timeout")
     requires_auth: bool = Field(default=False, description="Whether tool requires auth")
@@ -45,6 +73,13 @@ class ChatbotNodeCreate(BaseModel):
     is_active: bool = Field(default=True, description="Whether node is active")
     timeout_seconds: int = Field(default=30, description="Node timeout")
     retry_count: int = Field(default=3, description="Retry count")
+    
+    # References to agent and tool (IDs will be assigned during creation)
+    agent_id: Optional[int] = Field(None, description="Reference to agent ID")
+    tool_id: Optional[int] = Field(None, description="Reference to tool ID")
+    # For linking by name during creation
+    agent_name: Optional[str] = Field(None, description="Name of agent to link")
+    tool_name: Optional[str] = Field(None, description="Name of tool to link")
 
 
 # Chatbot creation schema with nested components
@@ -55,7 +90,6 @@ class ChatbotCreate(BaseModel):
     
     # LangGraph configuration
     graph_config: Optional[Dict[str, Any]] = Field(None, description="Graph structure configuration")
-    system_prompt: Optional[str] = Field(None, description="System prompt for the chatbot")
     
     # Settings
     is_active: bool = Field(default=True, description="Whether chatbot is active")
@@ -74,7 +108,6 @@ class ChatbotUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     graph_config: Optional[Dict[str, Any]] = None
-    system_prompt: Optional[str] = None
     is_active: Optional[bool] = None
     max_context_length: Optional[int] = None
     temperature: Optional[float] = None
@@ -84,16 +117,15 @@ class ChatbotUpdate(BaseModel):
 class ChatbotAgentResponse(BaseModel):
     """Schema for agent response."""
     id: int
-    chatbot_id: int
     name: str
     role: str
     description: Optional[str]
     model_name: str
     temperature: float
     system_prompt: Optional[str]
+    output_schema: Optional[Dict[str, Any]]
     is_active: bool
     priority: int
-    agent_config: Optional[Dict[str, Any]]
     created_at: datetime
     updated_at: datetime
     
@@ -104,15 +136,16 @@ class ChatbotAgentResponse(BaseModel):
 class ChatbotToolResponse(BaseModel):
     """Schema for tool response."""
     id: int
-    chatbot_id: int
     name: str
     tool_type: str
+    method: Optional[str]
+    url: Optional[str]
+    is_code: bool
     description: Optional[str]
     tool_schema: Optional[Dict[str, Any]]
-    tool_config: Optional[Dict[str, Any]]
+    output_schema: Optional[Dict[str, Any]]
     is_active: bool
     timeout_seconds: int
-    requires_auth: bool
     created_at: datetime
     updated_at: datetime
     
@@ -124,6 +157,8 @@ class ChatbotNodeResponse(BaseModel):
     """Schema for node response."""
     id: int
     chatbot_id: int
+    agent_id: Optional[int]
+    tool_id: Optional[int]
     node_name: str
     node_type: str
     description: Optional[str]
@@ -148,7 +183,6 @@ class ChatbotResponse(BaseModel):
     name: str
     description: Optional[str]
     graph_config: Optional[Dict[str, Any]]
-    system_prompt: Optional[str]
     is_active: bool
     max_context_length: int
     temperature: float
@@ -158,8 +192,6 @@ class ChatbotResponse(BaseModel):
     updated_at: datetime
     
     # Nested components
-    agents: List[ChatbotAgentResponse] = []
-    tools: List[ChatbotToolResponse] = []
     nodes: List[ChatbotNodeResponse] = []
     
     class Config:

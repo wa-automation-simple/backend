@@ -12,6 +12,8 @@ class ChatbotNode(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     chatbot_id = Column(Integer, ForeignKey("chatbots.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("chatbot_agents.id"), nullable=True)
+    tool_id = Column(Integer, ForeignKey("chatbot_tools.id"), nullable=True)
     
     # Node configuration
     node_name = Column(String(255), nullable=False)  # e.g., "researcher_node", "writer_node"
@@ -37,4 +39,6 @@ class ChatbotNode(Base):
     
     # Relationships
     chatbot = relationship("Chatbot", back_populates="nodes")
+    agent = relationship("ChatbotAgent", back_populates="nodes")
+    tool = relationship("ChatbotTool", back_populates="nodes")
 

@@ -1,10 +1,19 @@
 """Chatbot module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from chatbot.core.database import Base
+
+
+# Association table for many-to-many relationship between agents and tools
+chatbot_agent_tools = Table(
+    'chatbot_agent_tools',
+    Base.metadata,
+    Column('agent_id', Integer, ForeignKey('chatbot_agents.id'), primary_key=True),
+    Column('tool_id', Integer, ForeignKey('chatbot_tools.id'), primary_key=True)
+)
 
 
 class Chatbot(Base):
@@ -17,7 +26,6 @@ class Chatbot(Base):
     
     # LangGraph configuration
     graph_config = Column(JSON, nullable=True)  # Store graph structure
-    system_prompt = Column(Text, nullable=True)
     
     # Settings
     is_active = Column(Boolean, default=True)
@@ -32,9 +40,7 @@ class Chatbot(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships
-    agents = relationship("ChatbotAgent", back_populates="chatbot", cascade="all, delete-orphan")
+    # Relationships - only nodes directly, agents/tools linked via nodes
     nodes = relationship("ChatbotNode", back_populates="chatbot", cascade="all, delete-orphan")
-    tools = relationship("ChatbotTool", back_populates="chatbot", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="chatbot", cascade="all, delete-orphan")
 
