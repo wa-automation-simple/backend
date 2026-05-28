@@ -7,7 +7,16 @@ from datetime import datetime
 
 from chatbot.modules.chatbot.model import Chatbot
 from chatbot.modules.chatbot.repository import ChatbotRepository
-from chatbot.modules.chatbot.schemas import ChatbotCreate, ChatbotUpdate
+from chatbot.modules.chatbot.schemas import (
+    ChatbotCreate, 
+    ChatbotUpdate,
+    ChatbotAgentCreate,
+    ChatbotToolCreate,
+    ChatbotNodeCreate
+)
+from chatbot.modules.chatbot_agent.model import ChatbotAgent
+from chatbot.modules.chatbot_tool.model import ChatbotTool
+from chatbot.modules.chatbot_node.model import ChatbotNode
 
 
 class ChatbotService:
@@ -17,19 +26,65 @@ class ChatbotService:
         self.db = db
         self.repo = ChatbotRepository(db)
     
-    def create_item(self, item_data: ChatbotCreate) -> Chatbot:
-        """Create a new chatbot with static token."""
+    def create_item(self, item_data: ChatbotCreate, user_id: int) -> Chatbot:
+        """Create a new chatbot with static token and all components (agents, tools, nodes)."""
         # Generate unique static token for /chat endpoint
         static_token = f"chat_{uuid.uuid4().hex}"
         
-        data = item_data.model_dump()
-        data['static_token'] = static_token
+        # Create chatbot data without components
+        chatbot_data = {
+            'user_id': user_id,
+            'name': item_data.name,
+            'description': item_data.description,
+            'graph_config': item_data.graph_config,
+            'system_prompt': item_data.system_prompt,
+            'is_active': item_data.is_active,
+            'max_context_length': item_data.max_context_length,
+            'temperature': item_data.temperature,
+            'max_tokens': item_data.max_tokens,
+            'static_token': static_token
+        }
         
-        return self.repo.create(**data)
+        # Create the chatbot first
+        chatbot = self.repo.create(**chatbot_data)
+        
+        # Create agents
+        for agent_data in item_data.agents:
+            agent = ChatbotAgent(
+                chatbot_id=chatbot.id,
+                **agent_data.model_dump()
+            )
+            self.db.add(agent)
+        
+        # Create tools
+        for tool_data in item_data.tools:
+            tool = ChatbotTool(
+                chatbot_id=chatbot.id,
+                **tool_data.model_dump()
+            )
+            self.db.add(tool)
+        
+        # Create nodes
+        for node_data in item_data.nodes:
+            node = ChatbotNode(
+                chatbot_id=chatbot.id,
+                **node_data.model_dump()
+            )
+            self.db.add(node)
+        
+        # Commit all changes
+        self.db.commit()
+        self.db.refresh(chatbot)
+        
+        return chatbot
     
     def get_item(self, item_id: int) -> Optional[Chatbot]:
-        """Get chatbot by ID."""
-        return self.repo.get_by_id(item_id)
+        """Get chatbot by ID with all relationships loaded."""
+        chatbot = self.repo.get_by_id(item_id)
+        if chatbot:
+            # Refresh to ensure relationships are loaded
+            self.db.refresh(chatbot)
+        return chatbot
     
     def get_by_static_token(self, static_token: str) -> Optional[Chatbot]:
         """Get chatbot by static token."""

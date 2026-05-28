@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+import secrets
 
 from chatbot.core.database import get_db
 from chatbot.modules.chatbot.schemas import ChatbotCreate, ChatbotUpdate, ChatbotResponse
 from chatbot.modules.chatbot.service import ChatbotService
+from chatbot.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/chatbots", tags=["Chatbots"])
 
@@ -29,10 +31,16 @@ class ChatResponse(BaseModel):
 
 
 @router.post("", response_model=ChatbotResponse, status_code=status.HTTP_201_CREATED)
-def create_item(item_data: ChatbotCreate, db: Session = Depends(get_db)):
-    """Create a new chatbot."""
+async def create_item(
+    item_data: ChatbotCreate, 
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new chatbot with agents, tools, and nodes in one request."""
     service = ChatbotService(db)
-    return service.create_item(item_data=item_data)
+    # Extract user_id from authenticated user
+    user_id = current_user.get('user_id') or current_user.get('id')
+    return service.create_item(item_data=item_data, user_id=user_id)
 
 
 @router.get("", response_model=List[ChatbotResponse])
