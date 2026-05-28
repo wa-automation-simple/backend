@@ -21,42 +21,32 @@ wheels/
 .installed.cfg
 *.egg
 
+# Alembic
+alembic/versions/
+
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
-.venv/
-.env/
+.ENV/
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-
-# Environment variables
-.env
-.env.local
-*.env.*
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Temporary files
-*.tmp
-*.temp
-
-# Dependencies cache
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
 ```
