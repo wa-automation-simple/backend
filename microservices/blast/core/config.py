@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/blast_db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5433/blast_db"
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379"

@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  payment-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@payment-db:5432/payment_db
+    depends_on:
+      - payment-db
+    networks:
+      - payment-net
+    volumes:
+      - ../shared:/app/shared
+
+  payment-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=payment_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - payment-net
+
+networks:
+  payment-net:
+    driver: bridge
+
+volumes:
+  payment-db-data:

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  scheduler-service:
+    build: .
+    ports:
+      - "8008:8008"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@scheduler-db:5432/scheduler_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - scheduler-db
+      - redis
+    networks:
+      - scheduler-net
+    volumes:
+      - ../shared:/app/shared
+
+  scheduler-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=scheduler_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - scheduler-db-data:/var/lib/postgresql/data
+    networks:
+      - scheduler-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - scheduler-net
+
+networks:
+  scheduler-net:
+    driver: bridge
+
+volumes:
+  scheduler-db-data:
+  redis-data:

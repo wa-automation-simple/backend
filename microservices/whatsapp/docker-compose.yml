@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  whatsapp-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@whatsapp-db:5432/whatsapp_db
+    depends_on:
+      - whatsapp-db
+    networks:
+      - whatsapp-net
+    volumes:
+      - ../shared:/app/shared
+
+  whatsapp-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=whatsapp_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - whatsapp-db-data:/var/lib/postgresql/data
+    networks:
+      - whatsapp-net
+
+networks:
+  whatsapp-net:
+    driver: bridge
+
+volumes:
+  whatsapp-db-data:

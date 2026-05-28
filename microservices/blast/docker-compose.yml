@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  blast-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@blast-db:5432/blast_db
+    depends_on:
+      - blast-db
+    networks:
+      - blast-net
+    volumes:
+      - ../shared:/app/shared
+
+  blast-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=blast_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - blast-db-data:/var/lib/postgresql/data
+    networks:
+      - blast-net
+
+networks:
+  blast-net:
+    driver: bridge
+
+volumes:
+  blast-db-data:

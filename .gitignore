@@ -1,55 +1,62 @@
 ```
-# Python
+# Dependencies
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
+env/
+venv/
+.venv/
+.ENV
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+*.sublime-workspace
+.pytest_cache/
+.hypothesis/
+.coverage*
 .eggs/
-lib/
-lib64/
+eggs/
 parts/
 sdist/
-var/
-wheels/
-*.egg-info/
+develop-eggs/
 .installed.cfg
-*.egg
-
-# Virtual environments
+.lib/
+.libs/
+include/
+share/
+var/
+bin/
+.wafpickle-*
+build/
+dist/
+*.egg-info/
+.egg-info/
+.eggs/
+.venv/
 venv/
 env/
-ENV/
-.venv/
-.env/
-
-# IDE
+.pytest_cache/
+.mypy_cache/
+.hg/
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Testing
-.pytest_cache/
-.mypy_cache/
-
-# Docker/compose
-.dockerenv
+*.tmp
+*.env
+*.env.local
+*.env.*
 ```
