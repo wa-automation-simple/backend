@@ -1,14 +1,16 @@
-"""Scheduler Service Main Entry Point"""
+"""Auth Service Main Entry Point"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from shared.middleware import AuthMiddleware, log_requests
-from scheduler.config import settings
-from scheduler.api.v1.tasks import router as tasks_router
+from auth.core.config import settings
+
+# Import routers from each module
+from auth.modules.user.routes import router as user_router
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
-    description="Scheduler & Recovery Service for WhatsApp Marketing SaaS",
-    version="1.0.0"
+    description="Authentication & User Management Service",
+    version=settings.VERSION
 )
 
 # Add authentication middleware (handles access_token for all routes)
@@ -17,6 +19,7 @@ app.add_middleware(AuthMiddleware)
 # Add request logging middleware
 app.middleware("http")(log_requests)
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,14 +28,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(tasks_router)
+# Include routers
+app.include_router(user_router, prefix="/api/v1", tags=["Users"])
 
 
 @app.on_event("startup")
 async def startup_event():
-    from scheduler.core.database import Base, engine
-    Base.metadata.create_all(bind=engine)
-    print(f"✅ {settings.SERVICE_NAME} service started on port {settings.PORT}")
+    """Initialize database on startup"""
+    from auth.core.database import init_db
+    await init_db()
+
+
+@app.get("/")
+async def root():
+    return {"message": "Auth service is running"}
 
 
 @app.get("/health")
@@ -42,4 +51,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=settings.PORT)
+    uvicorn.run("auth.main:app", host="0.0.0.0", port=8001, reload=True)

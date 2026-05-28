@@ -5,29 +5,36 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from shared.security import decode_token, TokenData, SECRET_KEY, ALGORITHM
 from typing import Optional, Dict, Any
 from jose import jwt, JWTError
+import os
 
 security = HTTPBearer(auto_error=False)
+
+# Static token header name for chatbot endpoint
+STATIC_TOKEN_HEADER = "X-Chatbot-Token"
 
 
 class AuthMiddleware:
     """Middleware to handle access_token authentication for all requests.
     
     This middleware validates JWT access tokens from the Authorization header.
-    It excludes the /chatbot/chat endpoint which uses static token authentication.
+    For /chatbot/chat endpoint, it validates static_token from X-Chatbot-Token header instead.
     """
     
     def __init__(self, app):
         self.app = app
         # Paths that should be excluded from access_token requirement
         self.excluded_paths = [
-            "/chatbot/chat",
-            "/api/v1/chatbots/chat",
-            "/chat-by-token",
             "/health",
             "/",
             "/docs",
             "/openapi.json",
             "/redoc",
+        ]
+        # Paths that use static token authentication instead of JWT
+        self.static_token_paths = [
+            "/chatbot/chat",
+            "/api/v1/chatbots/chat",
+            "/chat-by-token",
         ]
     
     async def __call__(self, scope, receive, send):
@@ -43,7 +50,34 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
         
-        # Get token from Authorization header
+        # Check if path uses static token authentication (e.g., /chatbot/chat)
+        if self._is_static_token_path(path):
+            # Validate static token from X-Chatbot-Token header
+            static_token = request.headers.get(STATIC_TOKEN_HEADER)
+            
+            if not static_token:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Missing static token. Please provide X-Chatbot-Token header.",
+                    headers={"WWW-Authenticate": "X-Chatbot-Token"},
+                )
+            
+            # Validate static token against database
+            is_valid = await self._validate_static_token(static_token)
+            
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid static token",
+                    headers={"WWW-Authenticate": "X-Chatbot-Token"},
+                )
+            
+            # Attach chatbot info to request state
+            request.state.chatbot_token = static_token
+            await self.app(scope, receive, send)
+            return
+        
+        # For all other paths, require JWT access_token
         credentials: Optional[HTTPAuthorizationCredentials] = await security(request)
         
         if credentials is None:
@@ -76,6 +110,39 @@ class AuthMiddleware:
             if excluded in path:
                 return True
         return False
+    
+    def _is_static_token_path(self, path: str) -> bool:
+        """Check if the path uses static token authentication instead of JWT."""
+        for static_path in self.static_token_paths:
+            if static_path in path:
+                return True
+        return False
+    
+    async def _validate_static_token(self, token: str) -> bool:
+        """Validate static token against the database."""
+        try:
+            from sqlalchemy import select
+            from chatbot.core.database import get_db
+            from chatbot.modules.chatbot.model import Chatbot
+            
+            # Get database session
+            db_gen = get_db()
+            db = next(db_gen)
+            
+            try:
+                # Query chatbot by static token
+                stmt = select(Chatbot).where(Chatbot.static_token == token)
+                result = db.execute(stmt)
+                chatbot = result.scalar_one_or_none()
+                
+                if chatbot and chatbot.is_active:
+                    return True
+                return False
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Error validating static token: {e}")
+            return False
     
     def _validate_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Validate JWT access token and return user data."""

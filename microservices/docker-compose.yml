@@ -1,31 +1,9 @@
 version: '3.8'
 
 services:
-  # ============ API Gateway ============
-  gateway:
-    build: ./gateway
-    ports:
-      - "8000:8000"
-    environment:
-      - AUTH_SERVICE_URL=http://auth-service:8001
-      - WHATSAPP_SERVICE_URL=http://whatsapp-service:8003
-      - BLAST_SERVICE_URL=http://blast-service:8004
-      - AI_SERVICE_URL=http://ai-service:8005
-      - PAYMENT_SERVICE_URL=http://payment-service:8006
-      - FOLLOWUP_SERVICE_URL=http://followup-service:8007
-    depends_on:
-      - auth-service
-      - whatsapp-service
-      - blast-service
-      - ai-service
-      - payment-service
-      - followup-service
-    networks:
-      - microservices-net
-
   # ============ Auth Service ============
   auth-service:
-    build: ./auth-service
+    build: ./auth
     ports:
       - "8001:8001"
     environment:
@@ -49,7 +27,7 @@ services:
 
   # ============ WhatsApp Service ============
   whatsapp-service:
-    build: ./whatsapp-service
+    build: ./whatsapp
     ports:
       - "8003:8003"
     environment:
@@ -72,7 +50,7 @@ services:
 
   # ============ Blast Service ============
   blast-service:
-    build: ./blast-service
+    build: ./blast
     ports:
       - "8004:8004"
     environment:
@@ -93,33 +71,33 @@ services:
     networks:
       - microservices-net
 
-  # ============ AI Service ============
-  ai-service:
-    build: ./ai-service
+  # ============ Chatbot Service ============
+  chatbot-service:
+    build: ./chatbot
     ports:
-      - "8005:8005"
+      - "8002:8002"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@ai-db:5432/ai_db
+      - DATABASE_URL=postgresql://postgres:postgres@chatbot-db:5432/chatbot_db
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
-      - ai-db
+      - chatbot-db
     networks:
       - microservices-net
 
-  ai-db:
+  chatbot-db:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ai_db
+      - POSTGRES_DB=chatbot_db
     volumes:
-      - ai-db-data:/var/lib/postgresql/data
+      - chatbot-db-data:/var/lib/postgresql/data
     networks:
       - microservices-net
 
   # ============ Payment Service ============
   payment-service:
-    build: ./payment-service
+    build: ./payment
     ports:
       - "8006:8006"
     environment:
@@ -143,7 +121,7 @@ services:
 
   # ============ Follow-up Service ============
   followup-service:
-    build: ./followup-service
+    build: ./followup
     ports:
       - "8007:8007"
     environment:
@@ -166,7 +144,7 @@ services:
 
   # ============ Scheduler Service ============
   scheduler-service:
-    build: ./scheduler-service
+    build: ./scheduler
     ports:
       - "8008:8008"
     environment:
@@ -207,7 +185,7 @@ volumes:
   auth-db-data:
   whatsapp-db-data:
   blast-db-data:
-  ai-db-data:
+  chatbot-db-data:
   payment-db-data:
   followup-db-data:
   scheduler-db-data:
