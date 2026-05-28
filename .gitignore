@@ -1,46 +1,4 @@
 ```
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.env
-.env.local
-.env.*
-.venv/
-venv/
-ENV/
-.env.d/
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage/
-
-# Build and distribution artifacts
-dist/
-build/
-*.egg-info/
-.eggs/
-.installed.cfg
-lib/
-lib64/
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-Thumbs.db
 ```

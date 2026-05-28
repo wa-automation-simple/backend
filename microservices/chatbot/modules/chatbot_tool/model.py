@@ -43,6 +43,8 @@ class ChatbotTool(Base):
     # Variable resolution
     variable_pattern = Column(String(500), nullable=True)  # Regex pattern to extract variables
     dynamic_script = Column(Text, nullable=True)  # One-line Python script for dynamic config
+    input_variables = Column(JSON, nullable=True)  # List of variable names to extract from state for this tool
+    output_variables = Column(JSON, nullable=True)  # List of variable names where tool output should be stored
     
     # Tool definition
     description = Column(Text, nullable=True)
