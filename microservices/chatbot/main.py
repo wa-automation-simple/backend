@@ -1,6 +1,7 @@
 """Chatbot Service Main Entry Point"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from shared.middleware import AuthMiddleware, log_requests
 from .core.config import settings
 
 # Import routers from each module
@@ -17,6 +18,12 @@ app = FastAPI(
     description="AI Chatbot Service with LangGraph",
     version=settings.VERSION
 )
+
+# Add authentication middleware (handles access_token for all routes except /chatbot/chat)
+app.add_middleware(AuthMiddleware)
+
+# Add request logging middleware
+app.middleware("http")(log_requests)
 
 # CORS middleware
 app.add_middleware(
