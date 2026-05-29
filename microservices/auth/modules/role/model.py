@@ -1,6 +1,7 @@
 """Role module - Role-Based Access Control."""
 
 from sqlalchemy import Column, String, Boolean, DateTime, Table, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -12,8 +13,8 @@ from core.database import Base
 role_permissions = Table(
     "role_permissions",
     Base.metadata,
-    Column("role_id", String(36), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-    Column("permission_id", String(36), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", PG_UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("permission_id", PG_UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
     extend_existing=True
 )
 
@@ -23,7 +24,7 @@ class Role(Base):
     
     __tablename__ = "roles"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(50), unique=True, index=True, nullable=False)
     description = Column(String(255), nullable=True)
     is_system = Column(Boolean, default=False, nullable=False)  # System roles cannot be deleted

@@ -1,6 +1,7 @@
 """User module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Table
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Table
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum
@@ -13,8 +14,8 @@ from core.database import Base
 user_roles = Table(
     "user_roles",
     Base.metadata,
-    Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("role_id", String(36), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", PG_UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
     extend_existing=True  # <--- WAJIB TAMBAHKAN BARIS INI
 )
 
@@ -30,7 +31,7 @@ class User(Base):
     
     __tablename__ = "users"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 
     username = Column(String(50), unique=True, index=True, nullable=False)
     name = Column(String(50), unique=True, index=True, nullable=False)
@@ -63,8 +64,8 @@ class TokenTransaction(Base):
     
     __tablename__ = "token_transactions"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_type = Column(String(50), nullable=False)  # e.g., "access", "refresh"
     token_hash = Column(String(255), nullable=False, index=True)
     issued_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,6 +1,7 @@
 """Permission module - Permission definitions for RBAC."""
 
 from sqlalchemy import Column, String, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -13,7 +14,7 @@ class Permission(Base):
     
     __tablename__ = "permissions"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(100), unique=True, index=True, nullable=False)  # e.g., "user:create", "user:read"
     description = Column(String(255), nullable=True)
     resource = Column(String(50), nullable=False)  # e.g., "user", "post", "comment"
