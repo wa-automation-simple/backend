@@ -1,74 +1,8 @@
 """Pydantic schemas for User module."""
 
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime
-
-
-# ==================== Permission Schemas ====================
-
-class PermissionBase(BaseModel):
-    """Base schema for Permission."""
-    name: str = Field(..., description="Permission name, e.g., 'user:create'")
-    description: Optional[str] = None
-    resource: str = Field(..., description="Resource type, e.g., 'user', 'post'")
-    action: str = Field(..., description="Action type, e.g., 'create', 'read'")
-
-
-class PermissionCreate(PermissionBase):
-    """Schema for creating a new permission."""
-    pass
-
-
-class PermissionUpdate(BaseModel):
-    """Schema for updating a permission."""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    resource: Optional[str] = None
-    action: Optional[str] = None
-
-
-class PermissionResponse(PermissionBase):
-    """Schema for permission response."""
-    id: str
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-
-# ==================== Role Schemas ====================
-
-class RoleBase(BaseModel):
-    """Base schema for Role."""
-    name: str = Field(..., description="Role name")
-    description: Optional[str] = None
-    is_system: bool = False
-
-
-class RoleCreate(RoleBase):
-    """Schema for creating a new role."""
-    permission_ids: Optional[List[str]] = []
-
-
-class RoleUpdate(BaseModel):
-    """Schema for updating a role."""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_system: Optional[bool] = None
-    permission_ids: Optional[List[str]] = None
-
-
-class RoleResponse(RoleBase):
-    """Schema for role response."""
-    id: str
-    created_at: datetime
-    updated_at: datetime
-    permissions: Optional[List[PermissionResponse]] = []
-    
-    class Config:
-        from_attributes = True
 
 
 # ==================== User Schemas ====================
@@ -117,7 +51,7 @@ class UserResponse(UserBase):
     google_account_connected: bool
     google_email: Optional[str] = None
     google_name: Optional[str] = None
-    roles: Optional[List[RoleResponse]] = []
+    roles: Optional[List["RoleResponse"]] = []
     
     class Config:
         from_attributes = True
@@ -134,3 +68,10 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+# Import RoleResponse here to avoid circular imports
+from auth.modules.role.schemas import RoleResponse
+
+# Update forward references
+UserResponse.update_forward_refs()

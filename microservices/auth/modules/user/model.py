@@ -1,21 +1,12 @@
 """User module - Auto-generated."""
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum as SQLEnum, Table
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum
 import uuid
 
 from auth.core.database import Base
-
-
-# Association table for Role-Permission many-to-many relationship
-role_permissions = Table(
-    "role_permissions",
-    Base.metadata,
-    Column("role_id", String(36), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-    Column("permission_id", String(36), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
-)
 
 
 # Association table for User-Role many-to-many relationship
@@ -61,46 +52,6 @@ class User(Base):
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', google_connected={self.google_account_connected})>"
-
-
-class Role(Base):
-    """Role table for RBAC (Role-Based Access Control)."""
-    
-    __tablename__ = "roles"
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    name = Column(String(50), unique=True, index=True, nullable=False)
-    description = Column(String(255), nullable=True)
-    is_system = Column(Boolean, default=False, nullable=False)  # System roles cannot be deleted
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
-    users = relationship("User", secondary=user_roles, back_populates="roles")
-    
-    def __repr__(self):
-        return f"<Role(id={self.id}, name='{self.name}')>"
-
-
-class Permission(Base):
-    """Permission table for RBAC."""
-    
-    __tablename__ = "permissions"
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    name = Column(String(100), unique=True, index=True, nullable=False)  # e.g., "user:create", "user:read"
-    description = Column(String(255), nullable=True)
-    resource = Column(String(50), nullable=False)  # e.g., "user", "post", "comment"
-    action = Column(String(50), nullable=False)  # e.g., "create", "read", "update", "delete"
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
-    
-    def __repr__(self):
-        return f"<Permission(id={self.id}, name='{self.name}', resource='{self.resource}', action='{self.action}')>"
 
 
 class TokenTransaction(Base):

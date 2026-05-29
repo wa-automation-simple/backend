@@ -4,13 +4,9 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from passlib.context import CryptContext
 
-from auth.modules.user.model import User, Role, Permission
+from auth.modules.user.model import User
 from auth.modules.user.repository import UserRepository
-from auth.modules.user.schemas import (
-    UserCreate, UserUpdate, GoogleUserCreate,
-    RoleCreate, RoleUpdate,
-    PermissionCreate, PermissionUpdate
-)
+from auth.modules.user.schemas import UserCreate, UserUpdate, GoogleUserCreate
 
 
 # Password hashing context
@@ -137,97 +133,3 @@ class UserService:
     def delete_user(self, user_id: str) -> bool:
         """Delete a user."""
         return self.repo.delete(user_id)
-    
-    # ==================== Role Operations ====================
-    
-    def create_role(self, role_data: RoleCreate) -> Role:
-        """Create a new role."""
-        # Check if role name already exists
-        existing_role = self.repo.get_role_by_name(role_data.name)
-        if existing_role:
-            raise ValueError("Role name already exists")
-        
-        # Get permissions if provided
-        permissions = []
-        if role_data.permission_ids:
-            for perm_id in role_data.permission_ids:
-                permission = self.repo.get_permission_by_id(perm_id)
-                if permission:
-                    permissions.append(permission)
-        
-        role_dict = role_data.model_dump(exclude={'permission_ids'})
-        return self.repo.create_role(**role_dict, permissions=permissions)
-    
-    def get_role_by_id(self, role_id: str) -> Optional[Role]:
-        """Get role by ID."""
-        return self.repo.get_role_by_id(role_id)
-    
-    def list_roles(self) -> List[Role]:
-        """List all roles."""
-        return self.repo.list_roles()
-    
-    def update_role(self, role_id: str, role_data: RoleUpdate) -> Optional[Role]:
-        """Update role."""
-        update_data = {k: v for k, v in role_data.model_dump().items() if v is not None}
-        
-        # Handle permissions if provided
-        permission_ids = update_data.pop('permission_ids', None)
-        
-        if permission_ids is not None:
-            permissions = []
-            for perm_id in permission_ids:
-                permission = self.repo.get_permission_by_id(perm_id)
-                if permission:
-                    permissions.append(permission)
-            update_data['permissions'] = permissions
-        
-        return self.repo.update_role(role_id, **update_data)
-    
-    def delete_role(self, role_id: str) -> bool:
-        """Delete a role."""
-        return self.repo.delete_role(role_id)
-    
-    def assign_role_to_user(self, user_id: str, role_id: str) -> Optional[User]:
-        """Assign a role to a user."""
-        return self.repo.assign_role_to_user(user_id, role_id)
-    
-    def remove_role_from_user(self, user_id: str, role_id: str) -> Optional[User]:
-        """Remove a role from a user."""
-        return self.repo.remove_role_from_user(user_id, role_id)
-    
-    def get_user_permissions(self, user_id: str) -> List[str]:
-        """Get all permissions for a user."""
-        return self.repo.get_user_permissions(user_id)
-    
-    def has_permission(self, user_id: str, permission_name: str) -> bool:
-        """Check if user has a specific permission."""
-        permissions = self.get_user_permissions(user_id)
-        return permission_name in permissions
-    
-    # ==================== Permission Operations ====================
-    
-    def create_permission(self, permission_data: PermissionCreate) -> Permission:
-        """Create a new permission."""
-        # Check if permission name already exists
-        existing_perm = self.repo.get_permission_by_name(permission_data.name)
-        if existing_perm:
-            raise ValueError("Permission name already exists")
-        
-        return self.repo.create_permission(**permission_data.model_dump())
-    
-    def get_permission_by_id(self, permission_id: str) -> Optional[Permission]:
-        """Get permission by ID."""
-        return self.repo.get_permission_by_id(permission_id)
-    
-    def list_permissions(self) -> List[Permission]:
-        """List all permissions."""
-        return self.repo.list_permissions()
-    
-    def update_permission(self, permission_id: str, permission_data: PermissionUpdate) -> Optional[Permission]:
-        """Update permission."""
-        update_data = {k: v for k, v in permission_data.model_dump().items() if v is not None}
-        return self.repo.update_permission(permission_id, **update_data)
-    
-    def delete_permission(self, permission_id: str) -> bool:
-        """Delete a permission."""
-        return self.repo.delete_permission(permission_id)
