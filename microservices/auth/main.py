@@ -6,6 +6,8 @@ from auth.core.config import settings
 
 # Import routers from each module
 from auth.modules.user.routes import router as user_router
+from auth.modules.role.routes import router as role_router
+from auth.modules.permission.routes import router as permission_router
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -30,6 +32,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(user_router, prefix="/api/v1", tags=["Users"])
+app.include_router(role_router, prefix="/api/v1", tags=["Roles"])
+app.include_router(permission_router, prefix="/api/v1", tags=["Permissions"])
 
 
 @app.on_event("startup")
