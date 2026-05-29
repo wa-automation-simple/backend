@@ -71,7 +71,7 @@ class TokenResponse(BaseModel):
 
 
 # Import RoleResponse here to avoid circular imports
-from auth.modules.role.schemas import RoleResponse
+from modules.role.schemas import RoleResponse
 
 # Update forward references
 UserResponse.update_forward_refs()

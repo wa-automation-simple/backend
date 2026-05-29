@@ -3,10 +3,10 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from auth.modules.role.model import Role
-from auth.modules.role.repository import RoleRepository
-from auth.modules.role.schemas import RoleCreate, RoleUpdate
-from auth.modules.permission.repository import PermissionRepository
+from modules.role.model import Role
+from modules.role.repository import RoleRepository
+from modules.role.schemas import RoleCreate, RoleUpdate
+from modules.permission.repository import PermissionRepository
 
 
 class RoleService:

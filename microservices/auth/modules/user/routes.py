@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from auth.core.database import get_db
-from auth.modules.user.schemas import UserCreate, UserUpdate, UserResponse, GoogleUserCreate, TokenResponse
-from auth.modules.user.service import UserService
+from core.database import get_db
+from modules.user.schemas import UserCreate, UserUpdate, UserResponse, GoogleUserCreate, TokenResponse
+from modules.user.service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 

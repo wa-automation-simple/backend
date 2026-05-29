@@ -3,9 +3,9 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from auth.modules.permission.model import Permission
-from auth.modules.permission.repository import PermissionRepository
-from auth.modules.permission.schemas import PermissionCreate, PermissionUpdate
+from modules.permission.model import Permission
+from modules.permission.repository import PermissionRepository
+from modules.permission.schemas import PermissionCreate, PermissionUpdate
 
 
 class PermissionService:

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 from typing import Optional, List
 from datetime import datetime
 
-from auth.modules.user.model import User
+from modules.user.model import User
 
 
 class UserRepository:

@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from auth.core.database import get_db
-from auth.modules.permission.schemas import PermissionCreate, PermissionUpdate, PermissionResponse
-from auth.modules.permission.service import PermissionService
+from core.database import get_db
+from modules.permission.schemas import PermissionCreate, PermissionUpdate, PermissionResponse
+from modules.permission.service import PermissionService
 
 router = APIRouter(prefix="/permissions", tags=["Permissions"])
 

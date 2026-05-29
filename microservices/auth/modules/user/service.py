@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from passlib.context import CryptContext
 
-from auth.modules.user.model import User
-from auth.modules.user.repository import UserRepository
-from auth.modules.user.schemas import UserCreate, UserUpdate, GoogleUserCreate
+from modules.user.model import User
+from modules.user.repository import UserRepository
+from modules.user.schemas import UserCreate, UserUpdate, GoogleUserCreate
 
 
 # Password hashing context

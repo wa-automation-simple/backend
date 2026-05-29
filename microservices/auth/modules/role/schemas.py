@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
-from auth.modules.permission.schemas import PermissionResponse
+from modules.permission.schemas import PermissionResponse
 
 
 # ==================== Role Schemas ====================

@@ -1,3 +1,5 @@
 """Modules package - Feature based architecture."""
 
-from auth.modules.user import *
+# from .user import *
+# from .role import *
+# from .permission import *

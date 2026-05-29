@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 from typing import Optional, List
 from datetime import datetime
 
-from auth.modules.role.model import Role
+from modules.role.model import Role
 
 
 class RoleRepository:

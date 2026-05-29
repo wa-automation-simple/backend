@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from auth.core.database import get_db
-from auth.modules.role.schemas import RoleCreate, RoleUpdate, RoleResponse
-from auth.modules.role.service import RoleService
+from core.database import get_db
+from modules.role.schemas import RoleCreate, RoleUpdate, RoleResponse
+from modules.role.service import RoleService
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
 

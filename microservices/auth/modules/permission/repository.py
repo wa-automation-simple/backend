@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 
-from auth.modules.permission.model import Permission
+from modules.permission.model import Permission
 
 
 class PermissionRepository:

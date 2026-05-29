@@ -1,12 +1,12 @@
 """Permission module initialization."""
 
-from auth.modules.permission.model import Permission
-from auth.modules.permission.schemas import (
+from modules.permission.model import Permission
+from modules.permission.schemas import (
     PermissionBase, PermissionCreate, PermissionUpdate, PermissionResponse
 )
-from auth.modules.permission.repository import PermissionRepository
-from auth.modules.permission.service import PermissionService
-from auth.modules.permission.routes import router
+from modules.permission.repository import PermissionRepository
+from modules.permission.service import PermissionService
+from modules.permission.routes import router
 
 __all__ = [
     "Permission",

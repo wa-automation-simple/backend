@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 import uuid
 
-from auth.core.database import Base
+from core.database import Base
 
 
 # Association table for User-Role many-to-many relationship
@@ -14,7 +14,8 @@ user_roles = Table(
     "user_roles",
     Base.metadata,
     Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("role_id", String(36), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
+    Column("role_id", String(36), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    extend_existing=True  # <--- WAJIB TAMBAHKAN BARIS INI
 )
 
 
@@ -30,7 +31,10 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+
     username = Column(String(50), unique=True, index=True, nullable=False)
+    name = Column(String(50), unique=True, index=True, nullable=False)
+
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=True)  # Made nullable for Google OAuth users
     is_active = Column(Boolean, default=True, nullable=False)
