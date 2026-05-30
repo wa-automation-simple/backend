@@ -7,7 +7,7 @@ from datetime import datetime
 import enum
 import uuid
 
-from chatbot.core.database import Base
+from core.database import Base
 
 
 class HttpMethod(str, enum.Enum):

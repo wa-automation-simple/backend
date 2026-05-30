@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 
-from chatbot.core.database import Base
+from core.database import Base
 
 
 class ChatbotAgent(Base):

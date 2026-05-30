@@ -7,11 +7,11 @@ from pydantic import BaseModel
 from uuid import UUID
 import secrets
 
-from chatbot.core.database import get_db
-from chatbot.modules.chatbot.schemas import ChatbotCreate, ChatbotUpdate, ChatbotResponse
-from chatbot.modules.chatbot.service import ChatbotService
+from core.database import get_db
+from modules.chatbot.schemas import ChatbotCreate, ChatbotUpdate, ChatbotResponse
+from modules.chatbot.service import ChatbotService
 # from chatbot.middleware.auth import get_current_user
-from shared.middleware import get_current_user
+from middleware.auth import get_current_user
 
 router = APIRouter(prefix="/chatbots", tags=["Chatbots"])
 

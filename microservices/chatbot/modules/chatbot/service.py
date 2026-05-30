@@ -7,14 +7,14 @@ from uuid import UUID
 import uuid as uuid_lib
 from datetime import datetime
 
-from chatbot.modules.chatbot.model import Chatbot
-from chatbot.modules.chatbot.schemas import (
+from modules.chatbot.model import Chatbot
+from modules.chatbot.schemas import (
     ChatbotCreate, 
     ChatbotUpdate,
 )
-from chatbot.modules.chatbot_agent.model import ChatbotAgent
-from chatbot.modules.chatbot_tool.model import ChatbotTool
-from chatbot.modules.chatbot_node.model import ChatbotNode
+from modules.chatbot_agent.model import ChatbotAgent
+from modules.chatbot_tool.model import ChatbotTool
+from modules.chatbot_node.model import ChatbotNode
 
 
 class ChatbotService:

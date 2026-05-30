@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 
-from chatbot.modules.chatbot_state.model import ChatbotState
+from modules.chatbot_state.model import ChatbotState
 
 
 class ChatbotStateRepository:

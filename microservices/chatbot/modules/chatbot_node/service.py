@@ -3,9 +3,9 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from chatbot.modules.chatbot_node.model import ChatbotNode
-from chatbot.modules.chatbot_node.repository import ChatbotNodeRepository
-from chatbot.modules.chatbot_node.schemas import ChatbotNodeCreate, ChatbotNodeUpdate
+from modules.chatbot_node.model import ChatbotNode
+from modules.chatbot_node.repository import ChatbotNodeRepository
+from modules.chatbot_node.schemas import ChatbotNodeCreate, ChatbotNodeUpdate
 
 
 class ChatbotNodeService:

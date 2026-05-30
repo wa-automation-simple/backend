@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 
-from chatbot.core.database import Base
+from core.database import Base
 
 
 # Association table for many-to-many relationship between agents and tools
@@ -44,6 +44,6 @@ class Chatbot(Base):
     
     # Relationships - only nodes directly, agents/tools linked via nodes
     nodes = relationship("ChatbotNode", back_populates="chatbot", cascade="all, delete-orphan")
-    conversations = relationship("Conversation", back_populates="chatbot", cascade="all, delete-orphan")
+    # conversations = relationship("Conversation", back_populates="chatbot", cascade="all, delete-orphan")
     tools = relationship("ChatbotTool", back_populates="chatbot", cascade="all, delete-orphan")
 

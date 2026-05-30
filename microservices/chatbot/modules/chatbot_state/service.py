@@ -3,9 +3,9 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from chatbot.modules.chatbot_state.model import ChatbotState
-from chatbot.modules.chatbot_state.repository import ChatbotStateRepository
-from chatbot.modules.chatbot_state.schemas import ChatbotStateCreate, ChatbotStateUpdate
+from modules.chatbot_state.model import ChatbotState
+from modules.chatbot_state.repository import ChatbotStateRepository
+from modules.chatbot_state.schemas import ChatbotStateCreate, ChatbotStateUpdate
 
 
 class ChatbotStateService:

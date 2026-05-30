@@ -2,17 +2,19 @@
 
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, BigInteger
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+
 from datetime import datetime
 
-from chatbot.core.database import Base
+from core.database import Base
 
 
 class ChatbotState(Base):
     __tablename__ = "chatbot_states"
 
-    id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
-    chatbot_id = Column(Integer, ForeignKey("chatbots.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True)
+    # conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
+    chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id"), nullable=False)
     
     # State data (LangGraph state)
     state_data = Column(JSON, nullable=True)  # Complete state snapshot
@@ -33,6 +35,6 @@ class ChatbotState(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    conversation = relationship("Conversation", back_populates="states")
+    # conversation = relationship("Conversation", back_populates="states")
     chatbot = relationship("Chatbot")
 

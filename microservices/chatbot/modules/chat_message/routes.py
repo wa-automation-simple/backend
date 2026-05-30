@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from chatbot.core.database import get_db
-from chatbot.modules.chat_message.schemas import ChatMessageCreate, ChatMessageUpdate, ChatMessageResponse
-from chatbot.modules.chat_message.service import ChatMessageService
+from core.database import get_db
+from modules.chat_message.schemas import ChatMessageCreate, ChatMessageUpdate, ChatMessageResponse
+from modules.chat_message.service import ChatMessageService
 
 router = APIRouter(prefix="/chat_messages", tags=["ChatMessages"])
 

@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Optional, List, Dict, Any
 
-from chatbot.modules.chatbot_agent.model import ChatbotAgent
-from chatbot.modules.chatbot_agent.schemas import ChatbotAgentCreate, ChatbotAgentUpdate
-from chatbot.modules.chatbot_tool.service import VariableResolver, SafeEnvironment
+from modules.chatbot_agent.model import ChatbotAgent
+from modules.chatbot_agent.schemas import ChatbotAgentCreate, ChatbotAgentUpdate
+from modules.chatbot_tool.service import VariableResolver, SafeEnvironment
 
 
 class ChatbotAgentService:

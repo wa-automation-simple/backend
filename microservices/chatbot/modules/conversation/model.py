@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Foreign
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
-from chatbot.core.database import Base
+from core.database import Base
 
 
 class Conversation(Base):

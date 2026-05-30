@@ -8,8 +8,8 @@ import httpx
 import json
 from datetime import datetime
 
-from chatbot.modules.chatbot_tool.model import ChatbotTool, HttpMethod
-from chatbot.modules.chatbot_tool.schemas import ChatbotToolCreate, ChatbotToolUpdate
+from modules.chatbot_tool.model import ChatbotTool, HttpMethod
+from modules.chatbot_tool.schemas import ChatbotToolCreate, ChatbotToolUpdate
 
 
 class SafeEnvironment:
