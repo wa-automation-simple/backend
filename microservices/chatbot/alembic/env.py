@@ -30,12 +30,23 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.database import Base
+from modules.chatbot_agent.model import chatbot_agent
+from modules.chatbot.model import chatbot
+from modules.chatbot_node.model import chatbot_node
+from modules.chatbot_tool.model import chatbot_tool
+from modules.chatbot_state.model import chatbot_state
+from modules.conversation.model import conversation
+from modules.chat_message.model import chat_message
+
 
 # Import all models to ensure they are registered with Base.metadata
 # Add your model imports here as needed
 # from modules.user.model import User  # noqa: F401
 
 target_metadata = Base.metadata
+
+
+print(f"DEBUG: Found tables in metadata: {list(target_metadata.tables.keys())}")
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
