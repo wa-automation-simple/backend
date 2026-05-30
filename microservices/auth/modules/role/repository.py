@@ -1,6 +1,8 @@
 """Repository for Role database operations."""
 
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,40 +12,49 @@ from modules.role.model import Role
 class RoleRepository:
     """Repository for Role model operations."""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
-    def create(self, **kwargs) -> Role:
+    async def create(self, **kwargs) -> Role:
         """Create a new role."""
         permissions = kwargs.pop('permissions', [])
         item = Role(**kwargs)
         item.permissions = permissions
         self.db.add(item)
-        self.db.commit()
-        self.db.refresh(item)
+        await self.db.commit()
+        await self.db.refresh(item)
         return item
     
-    def get_by_id(self, role_id: str) -> Optional[Role]:
+    async def get_by_id(self, role_id: str) -> Optional[Role]:
         """Get role by ID."""
-        return self.db.query(Role).options(
-            selectinload(Role.permissions)
-        ).filter(Role.id == role_id).first()
+        result = await self.db.execute(
+            select(Role).options(
+                selectinload(Role.permissions)
+            ).filter(Role.id == role_id)
+        )
+        return result.scalar_one_or_none()
     
-    def get_by_name(self, name: str) -> Optional[Role]:
+    async def get_by_name(self, name: str) -> Optional[Role]:
         """Get role by name."""
-        return self.db.query(Role).options(
-            selectinload(Role.permissions)
-        ).filter(Role.name == name).first()
+        result = await self.db.execute(
+            select(Role).options(
+                selectinload(Role.permissions)
+            ).filter(Role.name == name)
+        )
+        return result.scalar_one_or_none()
     
-    def list_all(self) -> List[Role]:
+    async def list_all(self) -> List[Role]:
         """List all roles."""
-        return self.db.query(Role).options(
-            selectinload(Role.permissions)
-        ).all()
+        result = await self.db.execute(
+            select(Role).options(
+                selectinload(Role.permissions)
+            )
+        )
+        return list(result.scalars().all())
     
-    def update(self, role_id: str, **kwargs) -> Optional[Role]:
+    async def update(self, role_id: str, **kwargs) -> Optional[Role]:
         """Update role fields."""
-        item = self.get_by_id(role_id)
+        item = await self.get_by_id(role_id)
         if not item:
             return None
         
@@ -56,19 +67,19 @@ class RoleRepository:
                 setattr(item, key, value)
         
         item.updated_at = datetime.utcnow()
-        self.db.commit()
-        self.db.refresh(item)
+        await self.db.commit()
+        await self.db.refresh(item)
         return item
     
-    def delete(self, role_id: str) -> bool:
+    async def delete(self, role_id: str) -> bool:
         """Delete a role (only non-system roles)."""
-        item = self.get_by_id(role_id)
+        item = await self.get_by_id(role_id)
         if not item:
             return False
         
         if item.is_system:
             raise ValueError("Cannot delete system roles")
         
-        self.db.delete(item)
-        self.db.commit()
+        await self.db.delete(item)
+        await self.db.commit()
         return True
