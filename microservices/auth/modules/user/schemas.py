@@ -4,23 +4,29 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime
 
+from uuid import UUID
+
 
 # ==================== User Schemas ====================
 
+
 class UserBase(BaseModel):
     """Base schema for User."""
+
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
 
 
 class UserCreate(UserBase):
     """Schema for creating a new user."""
+
     password: str = Field(..., min_length=8)
     google_account_connected: bool = False
 
 
 class GoogleUserCreate(BaseModel):
     """Schema for creating a user via Google OAuth."""
+
     google_sub: str
     google_email: EmailStr
     google_name: Optional[str] = None
@@ -29,6 +35,7 @@ class GoogleUserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
+
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
@@ -42,7 +49,8 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     """Schema for user response."""
-    id: str
+
+    id: UUID
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -52,19 +60,14 @@ class UserResponse(UserBase):
     google_email: Optional[str] = None
     google_name: Optional[str] = None
     roles: Optional[List["RoleResponse"]] = []
-    
+
     class Config:
         from_attributes = True
 
 
-class UserLogin(BaseModel):
-    """Schema for user login."""
-    email: EmailStr
-    password: str
-
-
 class TokenResponse(BaseModel):
     """Schema for token response."""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"

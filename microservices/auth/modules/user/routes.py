@@ -5,13 +5,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from core.database import get_db
-from modules.user.schemas import UserCreate, UserUpdate, UserResponse, GoogleUserCreate, TokenResponse
+from modules.user.schemas import (
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    GoogleUserCreate,
+    TokenResponse,
+)
 from modules.user.service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 # ==================== User Routes ====================
+
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -23,8 +30,12 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/google", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_google_user(google_data: GoogleUserCreate, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/google", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_google_user(
+    google_data: GoogleUserCreate, db: AsyncSession = Depends(get_db)
+):
     """Create or link a user via Google OAuth."""
     service = UserService(db)
     try:
@@ -51,7 +62,9 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, user_data: UserUpdate, db: AsyncSession = Depends(get_db)):
+async def update_user(
+    user_id: str, user_data: UserUpdate, db: AsyncSession = Depends(get_db)
+):
     """Update user."""
     service = UserService(db)
     try:
