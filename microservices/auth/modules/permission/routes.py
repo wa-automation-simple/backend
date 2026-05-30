@@ -18,7 +18,7 @@ async def create_permission(permission_data: PermissionCreate, db: AsyncSession 
     """Create a new permission."""
     service = PermissionService(db)
     try:
-        return service.create_permission(permission_data=permission_data)
+        return await service.create_permission(permission_data=permission_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -27,14 +27,14 @@ async def create_permission(permission_data: PermissionCreate, db: AsyncSession 
 async def list_permissions(db: AsyncSession = Depends(get_db)):
     """List all permissions."""
     service = PermissionService(db)
-    return service.list_permissions()
+    return await service.list_permissions()
 
 
 @router.get("/{permission_id}", response_model=PermissionResponse)
 async def get_permission(permission_id: str, db: AsyncSession = Depends(get_db)):
     """Get permission by ID."""
     service = PermissionService(db)
-    permission = service.get_permission_by_id(permission_id)
+    permission = await service.get_permission_by_id(permission_id)
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found")
     return permission
@@ -45,7 +45,7 @@ async def update_permission(permission_id: str, permission_data: PermissionUpdat
     """Update permission."""
     service = PermissionService(db)
     try:
-        permission = service.update_permission(permission_id, permission_data)
+        permission = await service.update_permission(permission_id, permission_data)
         if not permission:
             raise HTTPException(status_code=404, detail="Permission not found")
         return permission
@@ -57,6 +57,6 @@ async def update_permission(permission_id: str, permission_data: PermissionUpdat
 async def delete_permission(permission_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a permission."""
     service = PermissionService(db)
-    success = service.delete_permission(permission_id)
+    success = await service.delete_permission(permission_id)
     if not success:
         raise HTTPException(status_code=404, detail="Permission not found")

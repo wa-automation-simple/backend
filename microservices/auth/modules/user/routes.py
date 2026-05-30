@@ -18,7 +18,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     """Create a new user."""
     service = UserService(db)
     try:
-        return service.create_user(user_data=user_data)
+        return await service.create_user(user_data=user_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -28,7 +28,7 @@ async def create_google_user(google_data: GoogleUserCreate, db: AsyncSession = D
     """Create or link a user via Google OAuth."""
     service = UserService(db)
     try:
-        return service.create_google_user(google_data=google_data)
+        return await service.create_google_user(google_data=google_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -37,14 +37,14 @@ async def create_google_user(google_data: GoogleUserCreate, db: AsyncSession = D
 async def list_users(db: AsyncSession = Depends(get_db)):
     """List all users."""
     service = UserService(db)
-    return service.list_users()
+    return await service.list_users()
 
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
     """Get user by ID."""
     service = UserService(db)
-    user = service.get_user_by_id(user_id)
+    user = await service.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -55,7 +55,7 @@ async def update_user(user_id: str, user_data: UserUpdate, db: AsyncSession = De
     """Update user."""
     service = UserService(db)
     try:
-        user = service.update_user(user_id, user_data)
+        user = await service.update_user(user_id, user_data)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return user
@@ -67,7 +67,7 @@ async def update_user(user_id: str, user_data: UserUpdate, db: AsyncSession = De
 async def delete_user(user_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a user."""
     service = UserService(db)
-    success = service.delete_user(user_id)
+    success = await service.delete_user(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -76,7 +76,7 @@ async def delete_user(user_id: str, db: AsyncSession = Depends(get_db)):
 async def get_user_permissions(user_id: str, db: AsyncSession = Depends(get_db)):
     """Get all permissions for a user."""
     service = UserService(db)
-    user = service.get_user_by_id(user_id)
+    user = await service.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return service.get_user_permissions(user_id)
+    return await service.get_user_permissions(user_id)
