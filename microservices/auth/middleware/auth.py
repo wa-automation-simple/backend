@@ -32,6 +32,7 @@ class AuthMiddleware:
             "/redoc",
             "/api/v1/auth/register",
             "/api/v1/auth/login",
+            "/api/v1/auth/google/login",
             "/api/v1/auth/refresh",
         ]
         # Paths that use static token authentication instead of JWT
